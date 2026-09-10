@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Application Received — The Soberana Network</title>
+<meta name="description" content="Your Soberana Network seat application has been received.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/portal.css">
+</head>
+<body>
+<div id="site-header"></div>
+<main>
+  <div class="wrap narrow" style="padding-top:72px;text-align:center">
+    <div class="kicker">Application received</div>
+    <h1>Thank you — it's in.</h1>
+    <div class="card" style="max-width:560px;margin:26px auto 0;text-align:left">
+      <p style="color:var(--muted);font-size:14.5px">Your reference code:</p>
+      <p style="font-family:var(--mono);font-size:26px;font-weight:600;color:#fff;letter-spacing:.04em" id="ref-code">—</p>
+      <p class="note" style="margin-top:16px">Your application starts the eligibility review described in the network's membership criteria. No payment or investment is requested at this stage.</p>
+      <p class="note">Keep the reference for your records. To follow the review, sign in on the status page with the same work email you applied with.</p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:20px">
+        <a class="btn" href="status.html">Check application status</a>
+        <a class="btn ghost" href="index.html">Back to portal home</a>
+      </div>
+    </div>
+  </div>
+</main>
+<div id="site-footer"></div>
+<script type="module">
+import { chrome } from './assets/ui.js';
+chrome({ active: '' });
+const ref = new URLSearchParams(window.location.search).get('ref');
+document.getElementById('ref-code').textContent = ref || 'SN-';
+</script>
+</body>
+</html>

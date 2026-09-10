@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Application Status — The Soberana Network</title>
+<meta name="description" content="Follow your Soberana Network seat application through the eligibility review.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/portal.css">
+</head>
+<body>
+<div id="site-header"></div>
+<main>
+  <div class="wrap narrow" style="padding-top:56px">
+    <div id="config-banner" class="banner">This portal is not wired to its backend yet. The operator must fill <code>assets/config.js</code> with the project URL and anon key.</div>
+    <div class="kicker">Application status</div>
+    <h1>Follow your application.</h1>
+    <p class="lead">Sign in with the work email you applied with. You will see your applications and their review stage — nothing else.</p>
+
+    <!-- signed-in view -->
+    <div id="apps-view" style="display:none">
+      <div id="apps-list" style="margin-top:26px"><div class="skel">Loading…</div></div>
+      <button class="btn ghost sm" id="signout" style="margin-top:18px">Sign out</button>
+    </div>
+
+    <!-- auth view -->
+    <div id="auth-view" class="auth" style="display:none">
+      <div class="card">
+        <div class="card" style="margin:0;padding:0;background:none;border:0">
+          <fieldset>
+            <label for="f-email">Work email <span class="req">*</span></label>
+            <input id="f-email" type="email" autocomplete="email" placeholder="you@company.com">
+          </fieldset>
+          <button class="btn" id="btn-code" style="width:100%">Email me a code</button>
+          <div class="divider">or</div>
+          <button class="btn ghost" id="btn-magic" style="width:100%">Email me a sign-in link</button>
+          <p class="hint" id="sent-hint" style="display:none"></p>
+          <div class="code-row" id="code-row">
+            <input id="f-code" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="6-digit code" style="letter-spacing:.35em;font-family:var(--mono)">
+            <button class="btn" id="btn-verify">Verify</button>
+          </div>
+          <p class="err" id="auth-err"></p>
+        </div>
+      </div>
+      <p class="hint">The code and the link both sign you in on this page. The link opens in this browser and expires shortly after it arrives.</p>
+    </div>
+  </div>
+</main>
+<div id="site-footer"></div>
+<script type="module">
+import { chrome, configBanner, toast, timeline, decisionLine, fmtDate, marketName } from './assets/ui.js';
+import {
+  configured, sb, sendLoginCode, sendMagicLink, verifyLoginCode, hasMagicLinkHash,
+  currentUser, userEmail, signOut, myApplications, myDecision, fetchMarkets,
+} from './assets/api.js';
+
+chrome({ active: 'status' });
+if (!configured) configBanner();
+
+const authView = document.getElementById('auth-view');
+const appsView = document.getElementById('apps-view');
+const authErr = document.getElementById('auth-err');
+const showAuth = () => { authView.style.display = 'block'; appsView.style.display = 'none'; };
+const showApps = () => { authView.style.display = 'none'; appsView.style.display = 'block'; };
+const fail = msg => { authErr.textContent = msg; authErr.classList.add('show'); };
+
+async function loadApps() {
+  const email = await userEmail();
+  if (!email) { showAuth(); return; }
+  showApps();
+  const box = document.getElementById('apps-list');
+  try {
+    const [markets, apps] = await Promise.all([fetchMarkets(), myApplications(email)]);
+    if (!apps.length) {
+      box.innerHTML = `<div class="card"><p style="color:var(--muted)">No applications found for <b style="color:#fff">${email}</b>.</p><p class="note">Applications appear here with the exact email you applied with. <a href="apply.html">Start an application →</a></p></div>`;
+      return;
+    }
+    box.innerHTML = '';
+    for (const app of apps) {
+      const dec = app.status === 'decided' ? await myDecision(app.id).catch(() => null) : null;
+      box.insertAdjacentHTML('beforeend', `
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline">
+            <div><span style="font-family:var(--mono);font-size:12px;color:var(--muted)">${app.ref}</span>
+            <h3 style="margin:4px 0 0">${app.company}</h3></div>
+            <div style="text-align:right"><span class="chip cool">${marketName(app, markets)}</span>
+            <div class="note" style="margin:6px 0 0">Applied ${fmtDate(app.created_at)}</div></div>
+          </div>
+          ${timeline(app.status)}
+          ${dec ? `<p class="ok-msg" style="margin-top:10px">${decisionLine(dec.outcome)}</p>` : ''}
+        </div>`);
+    }
+  } catch (e) {
+    box.innerHTML = '<div class="card"><p style="color:var(--muted)">Could not load your applications. Please try again.</p></div>';
+  }
+}
+
+/* --- auth: BOTH OTP variants (B-008 additional rule) --- */
+let pendingEmail = null;
+
+document.getElementById('btn-code').addEventListener('click', async () => {
+  authErr.classList.remove('show');
+  const email = document.getElementById('f-email').value.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail('Enter a valid email address.');
+  const { error } = await sendLoginCode(email);
+  if (error) return fail(error.message || 'Could not send the code.');
+  pendingEmail = email;
+  document.getElementById('code-row').classList.add('show');
+  const hint = document.getElementById('sent-hint');
+  hint.textContent = `Code sent to ${email}. It expires shortly — enter it below.`;
+  hint.style.display = 'block';
+  document.getElementById('f-code').focus();
+});
+
+document.getElementById('btn-magic').addEventListener('click', async () => {
+  authErr.classList.remove('show');
+  const email = document.getElementById('f-email').value.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail('Enter a valid email address.');
+  const { error } = await sendMagicLink(email, window.location.href);
+  if (error) return fail(error.message || 'Could not send the link.');
+  const hint = document.getElementById('sent-hint');
+  hint.textContent = `Sign-in link sent to ${email}. Open it on this browser to continue here.`;
+  hint.style.display = 'block';
+});
+
+async function doVerify() {
+  authErr.classList.remove('show');
+  const token = document.getElementById('f-code').value.trim();
+  if (!/^\d{6}$/.test(token)) return fail('Enter the 6-digit code from the email.');
+  const { error } = await verifyLoginCode(pendingEmail, token);
+  if (error) return fail('That code did not match. Request a new one and try again.');
+  await loadApps();
+}
+document.getElementById('btn-verify').addEventListener('click', doVerify);
+document.getElementById('f-code').addEventListener('keydown', e => { if (e.key === 'Enter') doVerify(); });
+
+document.getElementById('signout').addEventListener('click', async () => { await signOut(); showAuth(); });
+
+// magic-link returns land on this page with tokens in the hash; supabase-js
+// exchanges them automatically — give it a beat, then render.
+(async () => {
+  if (!configured) return;
+  if (hasMagicLinkHash()) await new Promise(r => setTimeout(r, 900));
+  (await currentUser()) ? loadApps() : showAuth();
+})();
+</script>
+</body>
+</html>

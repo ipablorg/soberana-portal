@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Member Portal — The Soberana Network</title>
+<meta name="description" content="The Soberana Network member portal — apply for a seat, follow your application, and access the review pipeline.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/portal.css">
+</head>
+<body>
+<div id="site-header"></div>
+<main>
+  <div class="wrap" style="padding-top:64px">
+    <div id="config-banner" class="banner">This portal is not wired to its backend yet. The operator must fill <code>assets/config.js</code> with the project URL and anon key.</div>
+    <div class="kicker">Member portal</div>
+    <h1>One door for the network's operators.</h1>
+    <p class="lead">Apply for a seat, follow your application through the eligibility review, and — for the network's review committee — run the pipeline. Everything here is an invitation to inquire: no payment, no investment commitments.</p>
+
+    <div class="grid3" style="margin-top:34px">
+      <div class="card">
+        <h3>Apply for a seat</h3>
+        <p class="note" style="margin-top:0">Tell us who you are, the market you operate, and what your seat would contribute. About two minutes.</p>
+        <a class="btn" href="apply.html" style="margin-top:14px">Start application</a>
+      </div>
+      <div class="card">
+        <h3>Check your status</h3>
+        <p class="note" style="margin-top:0">Already applied? Sign in with your work email and follow your application through the review stages.</p>
+        <a class="btn ghost" href="status.html" style="margin-top:14px">Check application status</a>
+      </div>
+      <div class="card">
+        <h3>Review committee</h3>
+        <p class="note" style="margin-top:0">Committee members sign in to the pipeline: gates, evaluation worksheet, decisions, seat registry.</p>
+        <a class="btn ghost" href="review/index.html" style="margin-top:14px">Reviewer sign-in</a>
+      </div>
+    </div>
+
+    <h2 style="margin-top:56px">Where the network is live</h2>
+    <p class="note" style="margin-top:0">Markets and rails operating in the network today. Seat availability is disclosed during the eligibility conversation.</p>
+    <div id="markets" class="skel">Loading markets…</div>
+  </div>
+</main>
+<div id="site-footer"></div>
+<script type="module">
+import { chrome, configBanner } from './assets/ui.js';
+import { configured, fetchMarkets } from './assets/api.js';
+
+chrome({ active: 'home' });
+
+const rails = m => (m.rails || []).join(' · ');
+if (configured) {
+  try {
+    const markets = await fetchMarkets();
+    document.getElementById('markets').outerHTML = markets.length
+      ? `<div class="tblwrap" style="margin-top:18px"><table class="tbl"><thead><tr><th>Market</th><th>Rails</th><th>Status</th></tr></thead><tbody>${
+          markets.map(m => `<tr><td><b style="color:#fff">${m.name}</b> <span class="chip">${m.code}</span></td><td style="color:var(--muted)">${rails(m) || '—'}</td><td>${m.live ? '<span class="chip live">LIVE</span>' : '<span class="chip">COMING ONLINE</span>'}</td></tr>`).join('')
+        }</tbody></table></div>`
+      : '<div class="skel">Market list coming online shortly.</div>';
+  } catch (e) {
+    document.getElementById('markets').textContent = 'Markets are temporarily unavailable.';
+  }
+} else {
+  configBanner();
+  document.getElementById('markets').outerHTML = '<div class="skel">Market list will appear once the portal is connected.</div>';
+}
+</script>
+</body>
+</html>

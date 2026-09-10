@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Apply for a Seat — The Soberana Network</title>
+<meta name="description" content="Apply for a Soberana Network seat — membership is by application and eligibility review for licensed local fintechs and payment institutions.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/portal.css">
+</head>
+<body>
+<div id="site-header"></div>
+<main>
+  <div class="wrap narrow" style="padding-top:56px">
+    <div id="config-banner" class="banner">This portal is not wired to its backend yet. The operator must fill <code>assets/config.js</code> with the project URL and anon key.</div>
+    <div class="kicker">Application</div>
+    <h1>Apply for a seat.</h1>
+    <p class="intro" style="color:var(--muted);font-size:16px;line-height:1.7;margin-bottom:30px">Membership is by application and eligibility review. This form is an invitation to inquire — it is not an offer of securities, and it takes no investment commitments. Capital terms are set out in the membership proposal and definitive agreements, provided to eligible recipients in permitted jurisdictions.</p>
+
+    <form id="apply-form" novalidate>
+      <div class="card">
+        <h2 style="font-size:18px">1 · Company</h2>
+        <div class="grid2">
+          <fieldset>
+            <label for="f-company">Company legal name <span class="req">*</span></label>
+            <input id="f-company" name="company" type="text" autocomplete="organization" required>
+          </fieldset>
+          <fieldset>
+            <label for="f-website">Website</label>
+            <input id="f-website" name="website" type="url" placeholder="https://">
+          </fieldset>
+        </div>
+        <fieldset>
+          <label for="f-entity">Entity class <span class="req">*</span></label>
+          <select id="f-entity" name="entity_class" required>
+            <option value="founding">Licensed fintech / PSP</option>
+            <option value="institutional">Bank or regulated FI</option>
+            <option value="sponsored">Unlicensed, with local distribution</option>
+          </select>
+          <p class="hint" id="entity-hint" style="display:none">Without a licence in at least one market, your route is the sponsored tier: you operate under a licensed member's seat and hold no seat yourself.</p>
+        </fieldset>
+      </div>
+
+      <div class="card">
+        <h2 style="font-size:18px">2 · Market</h2>
+        <div class="grid2">
+          <fieldset>
+            <label for="f-country">Country <span class="req">*</span></label>
+            <select id="f-country" name="country_code" required>
+              <option value="">Loading markets…</option>
+            </select>
+          </fieldset>
+          <fieldset>
+            <label for="f-market-other">Or, country not in the list</label>
+            <input id="f-market-other" name="market_other" type="text" placeholder="Country you would operate">
+          </fieldset>
+        </div>
+        <div class="grid2">
+          <fieldset>
+            <label for="f-rails">Rails you would operate <span class="req">*</span></label>
+            <input id="f-rails" name="rails_operated" type="text" placeholder="e.g. PIX, SPEI, ACH">
+          </fieldset>
+          <fieldset>
+            <label for="f-license-id">License / registration ID</label>
+            <input id="f-license-id" name="license_id" type="text">
+          </fieldset>
+        </div>
+        <fieldset>
+          <label for="f-regulator">Regulator</label>
+          <input id="f-regulator" name="regulator" type="text" placeholder="e.g. SFC, Banxico, BCB">
+        </fieldset>
+      </div>
+
+      <div class="card">
+        <h2 style="font-size:18px">3 · Scale</h2>
+        <div class="grid2">
+          <fieldset>
+            <label for="f-role">Operating role <span class="req">*</span></label>
+            <select id="f-role" name="operating_role" required>
+              <option>Payments</option>
+              <option>Remittances</option>
+              <option>Payroll</option>
+              <option>Wallet</option>
+              <option>PSP</option>
+              <option>Bank</option>
+              <option>Other</option>
+            </select>
+          </fieldset>
+          <fieldset>
+            <label for="f-tpv">Approximate monthly TPV <span class="req">*</span></label>
+            <select id="f-tpv" name="tpv_band" required>
+              <option>under US$1M</option>
+              <option>US$1–10M</option>
+              <option>US$10–50M</option>
+              <option>over US$50M</option>
+            </select>
+          </fieldset>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 style="font-size:18px">4 · Network fit</h2>
+        <div class="grid2">
+          <fieldset>
+            <label for="f-corr-out">Corridors you would contribute</label>
+            <input id="f-corr-out" name="corridors_contribute" type="text" placeholder="Markets where you hold licenses and distribution">
+          </fieldset>
+          <fieldset>
+            <label for="f-corr-in">Corridors you hope to receive</label>
+            <input id="f-corr-in" name="corridors_receive" type="text" placeholder="Markets where you need payout">
+          </fieldset>
+        </div>
+        <fieldset>
+          <label for="f-contribution">What would your seat contribute to the network?</label>
+          <textarea id="f-contribution" name="contribution"></textarea>
+        </fieldset>
+      </div>
+
+      <div class="card">
+        <h2 style="font-size:18px">5 · Contact</h2>
+        <div class="grid2">
+          <fieldset>
+            <label for="f-contact">Contact name <span class="req">*</span></label>
+            <input id="f-contact" name="contact_name" type="text" autocomplete="name" required>
+          </fieldset>
+          <fieldset>
+            <label for="f-email">Work email <span class="req">*</span></label>
+            <input id="f-email" name="contact_email" type="email" autocomplete="email" required>
+          </fieldset>
+        </div>
+        <fieldset>
+          <label style="text-transform:none;letter-spacing:0;font-family:var(--sans);font-size:13.5px;display:flex;gap:9px;align-items:flex-start">
+            <input type="checkbox" id="f-consent" required style="margin-top:3px">
+            <span>I consent to the processing of this information for the network's eligibility review, and I understand this form is an invitation to inquire — not an offer of securities — and takes no investment commitments. <span class="req">*</span></span>
+          </label>
+        </fieldset>
+        <!-- honeypot: humans never see or fill this; bots do -->
+        <fieldset class="hp" aria-hidden="true">
+          <label for="f-company_web">Company web</label>
+          <input id="f-company_web" name="company_web" type="text" tabindex="-1" autocomplete="off">
+        </fieldset>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin:24px 0 8px">
+        <button class="btn" type="submit" id="submit-btn">Submit application</button>
+        <span class="err" id="form-err"></span>
+      </div>
+      <p class="note">Your application starts the eligibility review described in the network's membership criteria. No payment or investment is requested at this stage.</p>
+    </form>
+  </div>
+</main>
+<div id="site-footer"></div>
+<script type="module">
+import { chrome, configBanner, toast } from './assets/ui.js';
+import { configured, sb, submitApplication, fetchMarkets } from './assets/api.js';
+
+chrome({ active: 'apply' });
+if (!configured) {
+  configBanner();
+  document.getElementById('submit-btn').disabled = true;
+}
+
+// markets select, live first
+if (configured) {
+  try {
+    const markets = await fetchMarkets();
+    const sorted = [...markets].sort((a, b) => (b.live - a.live) || a.name.localeCompare(b.name));
+    document.getElementById('f-country').innerHTML =
+      '<option value=""></option>' +
+      sorted.map(m => `<option value="${m.code}">${m.name}${m.live ? '' : ' (coming online)'}</option>`).join('') +
+      '<option value="__other">Other…</option>';
+    document.getElementById('f-country').addEventListener('change', e => {
+      document.getElementById('f-market-other').parentElement.style.display = '';
+    });
+  } catch { /* market list optional for submit; market_other covers it */ }
+}
+document.getElementById('f-country').addEventListener('change', e => {
+  if (e.target.value === '__other') { e.target.value = ''; document.getElementById('f-market-other').focus(); }
+});
+document.getElementById('f-entity').addEventListener('change', e => {
+  document.getElementById('entity-hint').style.display = e.target.value === 'sponsored' ? 'block' : 'none';
+});
+
+const REQUIRED = ['f-company', 'f-contact', 'f-email', 'f-consent'];
+const needMarket = () => {
+  const c = document.getElementById('f-country').value.trim();
+  const o = document.getElementById('f-market-other').value.trim();
+  return !(c || o);
+};
+
+document.getElementById('apply-form').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  const err = document.getElementById('form-err');
+  err.classList.remove('show');
+
+  // inline validation (RPC also validates — this is the friendly layer)
+  let firstBad = null;
+  const mark = (id, bad) => {
+    const el = document.getElementById(id);
+    el.classList.toggle('invalid', bad);
+    if (bad && !firstBad) firstBad = el;
+  };
+  mark('f-company', !document.getElementById('f-company').value.trim());
+  mark('f-contact', !document.getElementById('f-contact').value.trim());
+  const email = document.getElementById('f-email').value.trim();
+  mark('f-email', !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
+  mark('f-consent', !document.getElementById('f-consent').checked);
+  const marketMissing = needMarket();
+  mark('f-country', marketMissing);
+  mark('f-market-other', marketMissing);
+  if (firstBad) {
+    err.textContent = 'Please complete the highlighted fields.';
+    err.classList.add('show');
+    firstBad.focus();
+    return;
+  }
+
+  const val = id => document.getElementById(id).value.trim();
+  const payload = {
+    company: val('f-company'),
+    website: val('f-website'),
+    entity_class: val('f-entity'),
+    country_code: val('f-country'),
+    market_other: val('f-market-other'),
+    rails_operated: val('f-rails'),
+    regulator: val('f-regulator'),
+    license_id: val('f-license-id'),
+    operating_role: val('f-role'),
+    tpv_band: val('f-tpv'),
+    corridors_contribute: val('f-corr-out'),
+    corridors_receive: val('f-corr-in'),
+    contribution: val('f-contribution'),
+    contact_name: val('f-contact'),
+    contact_email: email,
+    consent: document.getElementById('f-consent').checked,
+    company_web: val('f-company_web'), // honeypot
+  };
+
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  try {
+    const res = await submitApplication(payload);
+    if (res.ok) {
+      window.location.href = 'submitted.html' + (res.ref ? '?ref=' + encodeURIComponent(res.ref) : '');
+      return;
+    }
+    if (res.error === 'rate_limited') {
+      err.textContent = 'This email already has recent applications under review. Please check your status page or write to contact@soberana.network — you can re-apply later.';
+      err.classList.add('show');
+    } else {
+      err.textContent = 'Please complete the highlighted fields.';
+      err.classList.add('show');
+    }
+  } catch (e) {
+    toast('Could not submit right now — please try again.', true);
+  }
+  btn.disabled = false;
+});
+</script>
+</body>
+</html>
