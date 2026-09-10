@@ -10,7 +10,7 @@ export function chrome({ active = '', depth = 0, internal = false } = {}) {
     `<a href="${A}${href}" class="${active === key ? 'on' : ''}">${label}</a>`;
   const nav = internal
     ? `${link('review/index.html', 'Pipeline', 'pipeline')}${link('review/seats.html', 'Seats', 'seats')}${link('index.html', 'Public site', 'public')}<a href="#" id="nav-signout">Sign out</a>`
-    : `${link('', 'Home', 'home')}${link('apply.html', 'Apply', 'apply')}${link('status.html', 'Application status', 'status')}${link('review/index.html', 'Reviewer sign-in', 'review')}`;
+    : `${link('index.html', 'Home', 'home')}${link('apply.html', 'Apply', 'apply')}${link('status.html', 'Application status', 'status')}${link('review/index.html', 'Reviewer sign-in', 'review')}`;
   const disclaimer = internal ? '' : `<div class="foot"><div class="wrap">${FOOTER_DISCLAIMER.replaceAll('ASSETS', A)}</div></div>`;
   document.getElementById('site-header').innerHTML =
     `<div class="hdr"><div class="wrap hdr-in"><a class="brand" href="${A}index.html">SOBERANA<b>.NETWORK</b></a><nav>${nav}</nav></div></div>`;
@@ -65,7 +65,7 @@ export function decisionLine(outcome) {
     advance: 'Advanced to committee recommendation.',
     conditional: 'Conditional — remediation plan agreed.',
     decline: 'Not eligible at this time (re-apply after 6 months).',
-    sponsored_route: 'Routed to the sponsored track. The network will contact you.',
+    sponsored_route: 'Routed to the sponsored tier. The network will contact you.',
   }[outcome] || '';
 }
 

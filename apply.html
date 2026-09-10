@@ -209,6 +209,7 @@ document.getElementById('apply-form').addEventListener('submit', async ev => {
   const email = document.getElementById('f-email').value.trim();
   mark('f-email', !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
   mark('f-consent', !document.getElementById('f-consent').checked);
+  mark('f-rails', !document.getElementById('f-rails').value.trim());
   const marketMissing = needMarket();
   mark('f-country', marketMissing);
   mark('f-market-other', marketMissing);

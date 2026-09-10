@@ -169,7 +169,8 @@ export async function fetchEvents(appId) {
 }
 
 export async function addEventNote(appId, detail) {
-  const { error } = await sb.from('pipeline_events').insert({ application_id: appId, event: 'note', detail });
+  const actor = (await currentUser())?.id ?? null;
+  const { error } = await sb.from('pipeline_events').insert({ application_id: appId, actor, event: 'note', detail });
   return error;
 }
 
