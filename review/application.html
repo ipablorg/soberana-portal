@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Application Detail — Soberana Network Review</title>
+<meta name="description" content="Soberana Network review — application detail.">
+<link rel="icon" type="image/svg+xml" href="../favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/portal.css">
+</head>
+<body>
+<div id="site-header"></div>
+<main>
+  <div class="wrap" style="padding-top:56px">
+    <div id="config-banner" class="banner">This portal is not wired to its backend yet. The operator must fill <code>assets/config.js</code> with the project URL and anon key.</div>
+
+    <div id="noaccess" style="display:none;text-align:center;padding:60px 0">
+      <div class="kicker">Review</div>
+      <h1>No review access</h1>
+      <p class="lead" style="margin:0 auto">This account has no review access.</p>
+      <a class="btn ghost" href="index.html" style="margin-top:24px">Back to pipeline</a>
+    </div>
+
+    <div id="detail" style="display:none">
+      <a href="index.html" class="hint" style="display:inline-block;text-decoration:none">← Pipeline</a>
+      <div id="head" style="margin:10px 0 6px"></div>
+      <div id="totals-line" style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 4px"></div>
+
+      <div class="grid2" style="margin-top:22px;align-items:start">
+        <div>
+          <div class="card">
+            <h2 style="font-size:17px">Submitted data</h2>
+            <div id="app-data" class="tblwrap"></div>
+          </div>
+
+          <div class="card">
+            <h2 style="font-size:17px">Hard gates</h2>
+            <p class="hint" style="margin-top:0">Stage-0 gates. Any fail blocks the evaluation band. Fail routing — licence or funds-flow: decline or sponsored tier; sandbox or program: remediation track.</p>
+            <div id="gates"></div>
+            <button class="btn sm" id="save-gates" style="margin-top:12px">Save gates</button>
+          </div>
+
+          <div class="card">
+            <h2 style="font-size:17px">Evaluation worksheet</h2>
+            <p class="hint" style="margin-top:0">Dimensions and their maximum points come from the network's evaluation database. The band below is a recommendation surface — the recorded decision governs.</p>
+            <div id="worksheet"></div>
+            <button class="btn sm" id="save-scores" style="margin-top:12px">Save scores</button>
+            <div id="band-line" style="margin-top:14px"></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="card">
+            <h2 style="font-size:17px">Stage</h2>
+            <div id="status-ctl"></div>
+          </div>
+
+          <div class="card">
+            <h2 style="font-size:17px">Decision</h2>
+            <div id="decision-ctl"></div>
+          </div>
+
+          <div class="card">
+            <h2 style="font-size:17px">Event log</h2>
+            <div id="events" style="font-size:13px"></div>
+            <div id="note-ctl" style="margin-top:12px">
+              <textarea id="f-note" placeholder="Add a pipeline note…" style="min-height:64px"></textarea>
+              <button class="btn sm" id="save-note" style="margin-top:8px">Add note</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+<div id="site-footer"></div>
+<script type="module">
+import { chrome, configBanner, toast, fmtDate, qs, STAGES, STAGE_LABELS } from '../assets/ui.js';
+import {
+  configured, sb, currentUser, signOut, myReviewerRow, fetchApplication, fetchGates, saveGates,
+  fetchDimensions, fetchScores, saveScores, fetchTotals, fetchDecision, recordDecision,
+  setStatus, fetchEvents, addEventNote,
+} from '../assets/api.js';
+
+chrome({ active: 'pipeline', depth: 1, internal: true });
+if (!configured) configBanner();
+
+const id = qs('id');
+const APP_ID = id;
+const GATE_HINT = {
+  D1_license: 'Statutory licence check', D1_funds_flow: 'Funds flow and licensing reach',
+  D4_sandbox: 'Sandbox and documentation', D5_program: 'Program and operations readiness',
+  D6_live_flows: 'Live flow capacity',
+};
+const OUTCOME_LABEL = { advance: 'Advance', conditional: 'Conditional', decline: 'Decline', sponsored_route: 'Sponsored route' };
+const BAND_LABEL = { advance: 'ADVANCE', conditional: 'CONDITIONAL', decline: 'DECLINE' };
+
+const show = id2 => { for (const s of ['noaccess', 'detail']) document.getElementById(s).style.display = 'none'; document.getElementById(id2).style.display = 'block'; };
+
+let role = 'reviewer';
+const canWrite = () => role !== 'readonly';
+
+function row(label, value) {
+  return `<div style="display:flex;gap:12px;padding:7px 0;border-bottom:1px solid var(--line)"><span style="font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);flex:0 0 150px;padding-top:2px">${label}</span><span style="flex:1;word-break:break-word">${value ?? '—'}</span></div>`;
+}
+
+async function loadAll() {
+  const user = await currentUser();
+  if (!user) { window.location.href = 'index.html'; return; }
+  let rrow = null;
+  try { rrow = await myReviewerRow(); } catch { /* RLS */ }
+  if (!rrow || !rrow.active) { show('noaccess'); return; }
+  role = rrow.role;
+
+  const app = await fetchApplication(APP_ID);
+  if (!app) {
+    document.getElementById('head').innerHTML = '<h1>Application not found.</h1><p class="lead">It may not exist, or your access does not cover it.</p>';
+    show('detail');
+    return;
+  }
+
+  const [gates, dims, scores, totals, decision, events] = await Promise.all([
+    fetchGates(APP_ID), fetchDimensions(), fetchScores(APP_ID), fetchTotals(APP_ID), fetchDecision(APP_ID), fetchEvents(APP_ID),
+  ]);
+
+  // head
+  document.getElementById('head').innerHTML =
+    `<div class="kicker">${app.ref}</div><h1 style="margin-bottom:4px">${app.company}</h1>
+     <p class="note" style="margin-top:0">Applied ${fmtDate(app.created_at)} · stage: <b style="color:#fff">${STAGE_LABELS[app.status]}</b></p>`;
+
+  // totals badges
+  const tb = [];
+  tb.push(`<span class="badge ${totals?.gates_failed ? 'g-bad' : 'g-ok'}">gates failed ${totals?.gates_failed ?? 0} · pending ${totals?.gates_pending ?? 0}</span>`);
+  tb.push(`<span class="badge">${totals?.total_points ?? 0} / ${totals?.max_points ?? 0} points</span>`);
+  tb.push(`<span class="badge ${totals?.band ? 'g-ok' : ''}">band: ${totals?.band ? BAND_LABEL[totals.band] : '—'}</span>`);
+  if (decision) tb.push(`<span class="chip warm">decision: ${OUTCOME_LABEL[decision.outcome]}</span>`);
+  document.getElementById('totals-line').innerHTML = tb.join('');
+
+  // submitted data
+  const mkt = app.country_code ? app.country_code : (app.market_other ? app.market_other + ' (outside list)' : '—');
+  document.getElementById('app-data').innerHTML = [
+    row('Company', app.company), row('Website', app.website ? `<a href="${app.website}" target="_blank" rel="noopener">${app.website}</a>` : '—'),
+    row('Entity class', app.entity_class), row('Market', mkt), row('Rails operated', app.rails_operated),
+    row('Regulator', app.regulator), row('License ID', app.license_id), row('Operating role', app.operating_role),
+    row('Monthly TPV', app.tpv_band), row('Corridors contributed', app.corridors_contribute),
+    row('Corridors received', app.corridors_receive), row('Contribution', app.contribution),
+    row('Contact', `${app.contact_name} · <a href="mailto:${app.contact_email}">${app.contact_email}</a>`),
+    row('Consent', app.consent ? 'yes' : 'NO'), row('Source', app.source),
+  ].join('');
+
+  // gates
+  const results = ['pending', 'pass', 'fail', 'na'];
+  document.getElementById('gates').innerHTML = gates.map(g => `
+    <div style="display:flex;gap:8px;align-items:center;margin-top:10px" data-gate="${g.gate_code}">
+      <span class="hint" style="flex:1;margin:0"><b style="color:#fff;font-family:var(--mono);font-size:11px">${g.gate_code}</b> · ${GATE_HINT[g.gate_code]}</span>
+      <select data-gate-result style="width:110px;flex:none" ${canWrite() ? '' : 'disabled'}>
+        ${results.map(r => `<option ${g.result === r ? 'selected' : ''}>${r}</option>`).join('')}
+      </select>
+      <input data-gate-note placeholder="note" value="${(g.note || '').replaceAll('"', '&quot;')}" style="flex:1.2" ${canWrite() ? '' : 'disabled'}>
+    </div>`).join('');
+  if (!canWrite()) document.getElementById('save-gates').style.display = 'none';
+
+  // worksheet — dimensions render from the database, including their caps
+  const scoreBy = Object.fromEntries(scores.map(s => [s.dimension_code, s]));
+  document.getElementById('worksheet').innerHTML = dims.map(d => {
+    const s = scoreBy[d.code];
+    return `<div style="display:flex;gap:8px;align-items:center;margin-top:10px" data-dim="${d.code}">
+      <span class="hint" style="flex:1;margin:0"><b style="color:#fff;font-family:var(--mono);font-size:11px">${d.code}</b> · ${d.label}${d.band_guide ? `<br>${d.band_guide}` : ''}</span>
+      <input data-dim-points type="number" min="0" max="${d.weight}" step="1" value="${s?.points ?? ''}" style="width:90px;flex:none" placeholder="0–${d.weight}" ${canWrite() ? '' : 'disabled'}>
+      <span class="hint" style="flex:none;margin:0">of ${d.weight}</span>
+      <input data-dim-note placeholder="note" value="${(s?.note || '').replaceAll('"', '&quot;')}" style="flex:1" ${canWrite() ? '' : 'disabled'}>
+    </div>`;
+  }).join('') || '<p class="hint">Evaluation dimensions appear once the network seeds them.</p>';
+  if (!canWrite() || !dims.length) document.getElementById('save-scores').style.display = 'none';
+
+  const renderBand = t => {
+    document.getElementById('band-line').innerHTML = t
+      ? `<span class="badge">running total ${t.total_points} / ${t.max_points}</span>
+         <span class="badge ${t.band ? 'g-ok' : ''}">band: ${t.band ? BAND_LABEL[t.band] : '—'}${(t.gates_failed + t.gates_pending) > 0 ? ' (blocked: gates open)' : (t.dims_scored < 5 ? ' (blocked: dimensions missing)' : '')}</span>`
+      : '';
+  };
+  renderBand(totals);
+
+  // stage control
+  document.getElementById('status-ctl').innerHTML = canWrite() ? `
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <select id="new-status" style="flex:1;min-width:150px">${STAGES.map(s => `<option ${app.status === s ? 'selected' : ''}>${s}</option>`).join('')}</select>
+      <input id="status-note" placeholder="note (optional)" style="flex:1;min-width:150px">
+      <button class="btn sm" id="apply-status">Update stage</button>
+    </div>
+    <p class="hint">Stage changes are audit-logged.</p>` : `<p class="hint">Read-only access.</p>`;
+
+  // decision (admin only — C-001 chain records it)
+  const dc = document.getElementById('decision-ctl');
+  if (decision) {
+    dc.innerHTML = `<div class="tblwrap">${row('Outcome', OUTCOME_LABEL[decision.outcome])}${row('Rationale', decision.rationale)}${row('Conditions', decision.conditions)}${row('Board ref', decision.board_ref)}${row('Decided', fmtDate(decision.decided_at))}</div>`;
+  } else if (role === 'admin') {
+    dc.innerHTML = `
+      <fieldset><label>Outcome</label><select id="d-outcome">
+        ${Object.entries(OUTCOME_LABEL).map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}
+      </select></fieldset>
+      <fieldset><label>Rationale <span class="req">*</span></label><textarea id="d-rationale" style="min-height:70px"></textarea></fieldset>
+      <fieldset id="d-cond-wrap" style="display:none"><label>Conditions — dated remediation plan</label><textarea id="d-conditions" style="min-height:70px"></textarea></fieldset>
+      <fieldset><label>Board reference</label><input id="d-boardref" type="text"></fieldset>
+      <button class="btn sm" id="record-decision">Record decision</button>
+      <p class="hint">Recording a decision closes the application and is audit-logged. Admin only.</p>`;
+    document.getElementById('d-outcome').addEventListener('change', e => {
+      document.getElementById('d-cond-wrap').style.display = e.target.value === 'conditional' ? 'block' : 'none';
+    });
+  } else {
+    dc.innerHTML = '<p class="hint">Only an administrator records decisions.</p>';
+  }
+
+  // events
+  const renderEvents = evs => {
+    document.getElementById('events').innerHTML = evs.length ? evs.map(e =>
+      `<div style="padding:7px 0;border-bottom:1px solid var(--line)"><span class="chip">${e.event}</span>
+       <span style="color:var(--muted);font-size:12px"> ${new Date(e.created_at).toLocaleString('en')}</span>
+       ${e.detail ? `<div style="margin-top:3px">${e.detail}</div>` : ''}</div>`).join('')
+      : '<p class="hint">No events yet.</p>';
+  };
+  renderEvents(events);
+
+  const reloadEvents = async () => renderEvents(await fetchEvents(APP_ID));
+  const reloadTotals = async () => renderBand(await fetchTotals(APP_ID));
+
+  // --- wiring ---
+  if (canWrite()) {
+    document.getElementById('save-gates').addEventListener('click', async () => {
+      const rows = [...document.querySelectorAll('[data-gate]')].map(div => ({
+        application_id: APP_ID, gate_code: div.dataset.gate,
+        result: div.querySelector('[data-gate-result]').value,
+        note: div.querySelector('[data-gate-note]').value.trim() || null,
+      }));
+      const err = await saveGates(rows);
+      if (err) return toast('Could not save gates: ' + err.message, true);
+      toast('Gates saved.');
+      await Promise.all([reloadEvents(), reloadTotals()]);
+    });
+
+    document.getElementById('save-scores').addEventListener('click', async () => {
+      const rows = [];
+      for (const div of document.querySelectorAll('[data-dim]')) {
+        const raw = div.querySelector('[data-dim-points]').value;
+        if (raw === '') continue;
+        rows.push({
+          application_id: APP_ID, dimension_code: div.dataset.dim,
+          points: Number(raw), note: div.querySelector('[data-dim-note]').value.trim() || null,
+        });
+      }
+      if (!rows.length) return toast('Nothing to save — enter at least one dimension.', true);
+      const err = await saveScores(rows);
+      if (err) return toast('Could not save scores: ' + err.message, true);
+      toast('Scores saved.');
+      await Promise.all([reloadEvents(), reloadTotals()]);
+    });
+
+    document.getElementById('apply-status')?.addEventListener('click', async () => {
+      const err = await setStatus(APP_ID, document.getElementById('new-status').value, document.getElementById('status-note').value.trim());
+      if (err) return toast(err.message === 'not_authorized' ? 'You are not authorized to change stages.' : 'Could not update stage.', true);
+      toast('Stage updated.');
+      setTimeout(() => window.location.reload(), 600);
+    });
+
+    document.getElementById('record-decision')?.addEventListener('click', async () => {
+      const rationale = document.getElementById('d-rationale').value.trim();
+      if (!rationale) return toast('A rationale is required to record a decision.', true);
+      const err = await recordDecision({
+        application_id: APP_ID,
+        outcome: document.getElementById('d-outcome').value,
+        rationale,
+        conditions: document.getElementById('d-conditions')?.value.trim() || null,
+        board_ref: document.getElementById('d-boardref').value.trim() || null,
+      });
+      if (err) return toast('Could not record decision: ' + err.message, true);
+      toast('Decision recorded — application closed.');
+      setTimeout(() => window.location.reload(), 700);
+    });
+
+    document.getElementById('save-note').addEventListener('click', async () => {
+      const detail = document.getElementById('f-note').value.trim();
+      if (!detail) return;
+      const err = await addEventNote(APP_ID, detail);
+      if (err) return toast('Could not add note.', true);
+      document.getElementById('f-note').value = '';
+      toast('Note added.');
+      await reloadEvents();
+    });
+  }
+}
+
+(async () => {
+  if (!configured) return;
+  if (!(await currentUser())) { window.location.href = 'index.html'; return; }
+  await loadAll();
+})();
+</script>
+</body>
+</html>

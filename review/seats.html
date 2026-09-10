@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Seat Registry — Soberana Network Review</title>
+<meta name="description" content="Soberana Network seat registry.">
+<link rel="icon" type="image/svg+xml" href="../favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/portal.css">
+</head>
+<body>
+<div id="site-header"></div>
+<main>
+  <div class="wrap" style="padding-top:56px">
+    <div id="config-banner" class="banner">This portal is not wired to its backend yet. The operator must fill <code>assets/config.js</code> with the project URL and anon key.</div>
+
+    <div id="noaccess" style="display:none;text-align:center;padding:60px 0">
+      <div class="kicker">Review</div>
+      <h1>No review access</h1>
+      <p class="lead" style="margin:0 auto">This account has no review access.</p>
+      <button class="btn ghost" id="signout-na" style="margin-top:24px">Sign out</button>
+    </div>
+
+    <div id="seats-view" style="display:none">
+      <div class="kicker">Registry</div>
+      <h1>Seat registry.</h1>
+      <p class="lead" style="font-size:15px">Per-market seat allocation. Numbers left blank stay undisclosed on the public site. Administrators edit.</p>
+      <div class="tblwrap card" style="margin-top:24px;padding:8px 14px">
+        <table class="tbl" id="tbl">
+          <thead><tr><th>Market</th><th>Rails</th><th style="width:120px">Total</th><th style="width:120px">Allocated</th><th style="width:90px">Live</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="hint" id="save-hint"></p>
+    </div>
+  </div>
+</main>
+<div id="site-footer"></div>
+<script type="module">
+import { chrome, configBanner, toast } from '../assets/ui.js';
+import { configured, currentUser, signOut, myReviewerRow, fetchSeats, saveSeat } from '../assets/api.js';
+
+chrome({ active: 'seats', depth: 1, internal: true });
+if (!configured) configBanner();
+const show = id => { for (const s of ['noaccess', 'seats-view']) document.getElementById(s).style.display = 'none'; document.getElementById(id).style.display = 'block'; };
+
+async function load() {
+  const user = await currentUser();
+  if (!user) { show('noaccess'); return; }
+  let row = null;
+  try { row = await myReviewerRow(); } catch { /* RLS */ }
+  if (!row || !row.active) { show('noaccess'); return; }
+  const isAdmin = row.role === 'admin';
+  show('seats-view');
+
+  const markets = await fetchSeats();
+  const tb = document.querySelector('#tbl tbody');
+  tb.innerHTML = markets.map(m => `
+    <tr data-code="${m.code}">
+      <td><b style="color:#fff">${m.name}</b> <span class="chip">${m.code}</span></td>
+      <td style="color:var(--muted);font-size:13px">${(m.rails || []).join(' · ') || '—'}</td>
+      <td><input data-total type="number" min="0" step="1" value="${m.seat_total ?? ''}" placeholder="—" ${isAdmin ? '' : 'disabled'}></td>
+      <td><input data-alloc type="number" min="0" step="1" value="${m.seats_allocated}" ${isAdmin ? '' : 'disabled'}></td>
+      <td><input data-live type="checkbox" ${m.live ? 'checked' : ''} ${isAdmin ? '' : 'disabled'}></td>
+      <td>${isAdmin ? '<button class="btn sm" data-save>Save</button>' : ''}</td>
+    </tr>`).join('');
+
+  if (!isAdmin) { document.getElementById('save-hint').textContent = 'Read-only access — administrators edit the registry.'; return; }
+
+  tb.addEventListener('click', async e => {
+    const btn = e.target.closest('[data-save]');
+    if (!btn) return;
+    const tr = btn.closest('tr');
+    const rawTotal = tr.querySelector('[data-total]').value;
+    const err = await saveSeat({
+      code: tr.dataset.code,
+      seat_total: rawTotal === '' ? null : Number(rawTotal),
+      seats_allocated: Number(tr.querySelector('[data-alloc]').value || 0),
+      live: tr.querySelector('[data-live]').checked,
+    });
+    if (err) return toast('Could not save: ' + err.message, true);
+    toast('Registry updated.');
+  });
+}
+
+document.getElementById('signout-na').addEventListener('click', async () => { await signOut(); show('noaccess'); });
+(async () => {
+  if (!configured) return;
+  (await currentUser()) ? load() : show('noaccess');
+})();
+</script>
+</body>
+</html>

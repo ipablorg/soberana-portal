@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Pipeline — Soberana Network Review</title>
+<meta name="description" content="Soberana Network review pipeline.">
+<link rel="icon" type="image/svg+xml" href="../favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/portal.css">
+</head>
+<body>
+<div id="site-header"></div>
+<main>
+  <div class="wrap" style="padding-top:56px">
+    <div id="config-banner" class="banner">This portal is not wired to its backend yet. The operator must fill <code>assets/config.js</code> with the project URL and anon key.</div>
+
+    <!-- no-access screen -->
+    <div id="noaccess" style="display:none;text-align:center;padding:60px 0">
+      <div class="kicker">Review</div>
+      <h1>No review access</h1>
+      <p class="lead" style="margin:0 auto">This account has no review access. If you believe this is a mistake, contact the network's administrator.</p>
+      <button class="btn ghost" id="signout-na" style="margin-top:24px">Sign out</button>
+    </div>
+
+    <!-- auth -->
+    <div id="auth-view" class="auth" style="display:none">
+      <div class="kicker">Review sign-in</div>
+      <h1>Pipeline access.</h1>
+      <p class="lead" style="font-size:15px">Sign in with your committee email.</p>
+      <div class="card" style="margin-top:20px">
+        <fieldset>
+          <label for="f-email">Committee email <span class="req">*</span></label>
+          <input id="f-email" type="email" autocomplete="email" placeholder="you@organization.com">
+        </fieldset>
+        <button class="btn" id="btn-code" style="width:100%">Email me a code</button>
+        <div class="divider">or</div>
+        <button class="btn ghost" id="btn-magic" style="width:100%">Email me a sign-in link</button>
+        <p class="hint" id="sent-hint" style="display:none"></p>
+        <div class="code-row" id="code-row">
+          <input id="f-code" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="6-digit code" style="letter-spacing:.35em;font-family:var(--mono)">
+          <button class="btn" id="btn-verify">Verify</button>
+        </div>
+        <p class="err" id="auth-err"></p>
+      </div>
+      <p class="hint">The code and the link both sign you in on this page. Access is limited to active committee members.</p>
+    </div>
+
+    <!-- board -->
+    <div id="board-view" style="display:none">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:14px;flex-wrap:wrap">
+        <div><div class="kicker">Pipeline</div><h1>Applications.</h1></div>
+        <input id="filter" type="search" placeholder="Filter by ref, company, market…" style="max-width:320px">
+      </div>
+      <div id="board" class="board" style="margin-top:26px"><div class="skel">Loading pipeline…</div></div>
+    </div>
+  </div>
+</main>
+<div id="site-footer"></div>
+<script type="module">
+import { chrome, configBanner, toast, STAGES, STAGE_LABELS, fmtDate } from '../assets/ui.js';
+import {
+  configured, sb, sendLoginCode, sendMagicLink, verifyLoginCode, hasMagicLinkHash,
+  currentUser, userEmail, signOut, myReviewerRow, boardData,
+} from '../assets/api.js';
+
+chrome({ active: 'pipeline', depth: 1, internal: true });
+if (!configured) configBanner();
+
+const show = id => { for (const s of ['noaccess', 'auth-view', 'board-view']) document.getElementById(s).style.display = 'none'; document.getElementById(id).style.display = 'block'; };
+
+async function loadBoard() {
+  const user = await currentUser();
+  if (!user) { show('auth-view'); return; }
+  let row = null;
+  try { row = await myReviewerRow(); } catch { /* RLS */ }
+  if (!row || !row.active) { show('noaccess'); return; }
+  show('board-view');
+
+  const { apps, gates, totals, events } = await boardData();
+  const marketsCache = {};
+  try {
+    const { fetchMarkets } = await import('../assets/api.js');
+    for (const m of await fetchMarkets()) marketsCache[m.code] = m.name;
+  } catch { /* chips fall back to codes */ }
+
+  const gateStats = {};
+  for (const g of gates) {
+    const s = gateStats[g.application_id] ||= { pass: 0, fail: 0, count: 0 };
+    s.count++; if (g.result === 'pass') s.pass++; if (g.result === 'fail') s.fail++;
+  }
+  const tot = Object.fromEntries(totals.map(t => [t.application_id, t]));
+  const lastStage = {};
+  for (const e of events) lastStage[e.application_id] = e.created_at;
+  const DAYS = 86400000;
+  const age = a => Math.max(0, Math.floor((Date.now() - new Date(lastStage[a.id] || a.created_at).getTime()) / DAYS));
+
+  const cards = {};
+  for (const s of STAGES) cards[s] = [];
+  for (const a of apps) {
+    const g = gateStats[a.id] || { pass: 0, count: 0, fail: 0 };
+    const t = tot[a.id];
+    const mkt = a.country_code ? (marketsCache[a.country_code] || a.country_code) : (a.market_other || '—');
+    cards[a.status]?.push(`
+      <a class="bcard" href="application.html?id=${a.id}" data-search="${(a.ref + ' ' + a.company + ' ' + mkt).toLowerCase()}">
+        <div class="ref">${a.ref} · ${age(a)}d</div>
+        <div class="co">${a.company}</div>
+        <div class="meta">
+          <span class="chip cool">${mkt}</span>
+          <span class="badge ${g.fail ? 'g-bad' : (g.pass === g.count && g.count ? 'g-ok' : '')}">gates ${g.pass}/${g.count || 5}${g.fail ? ' · ' + g.fail + ' fail' : ''}</span>
+          <span class="badge">${t && t.total_points != null ? t.total_points + ' pts' : '—'}</span>
+        </div>
+      </a>`);
+  }
+  document.getElementById('board').innerHTML = STAGES.map(s =>
+    `<div class="bcol"><h3>${STAGE_LABELS[s]}<span>${cards[s].length}</span></h3>${cards[s].join('') || '<div class="hint" style="padding:4px 2px">Empty</div>'}</div>`).join('');
+
+  document.getElementById('filter').oninput = e => {
+    const q = e.target.value.toLowerCase().trim();
+    document.querySelectorAll('.bcard').forEach(c => { c.style.display = !q || c.dataset.search.includes(q) ? '' : 'none'; });
+  };
+}
+
+/* --- auth: BOTH OTP variants --- */
+let pendingEmail = null;
+const authErr = document.getElementById('auth-err');
+const fail = msg => { authErr.textContent = msg; authErr.classList.add('show'); };
+
+document.getElementById('btn-code').addEventListener('click', async () => {
+  authErr.classList.remove('show');
+  const email = document.getElementById('f-email').value.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail('Enter a valid email address.');
+  const { error } = await sendLoginCode(email);
+  if (error) return fail(error.message || 'Could not send the code.');
+  pendingEmail = email;
+  document.getElementById('code-row').classList.add('show');
+  const hint = document.getElementById('sent-hint');
+  hint.textContent = `Code sent to ${email}. It expires shortly — enter it below.`;
+  hint.style.display = 'block';
+  document.getElementById('f-code').focus();
+});
+document.getElementById('btn-magic').addEventListener('click', async () => {
+  authErr.classList.remove('show');
+  const email = document.getElementById('f-email').value.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail('Enter a valid email address.');
+  const { error } = await sendMagicLink(email, window.location.href);
+  if (error) return fail(error.message || 'Could not send the link.');
+  const hint = document.getElementById('sent-hint');
+  hint.textContent = `Sign-in link sent to ${email}. Open it on this browser to continue here.`;
+  hint.style.display = 'block';
+});
+async function doVerify() {
+  authErr.classList.remove('show');
+  const token = document.getElementById('f-code').value.trim();
+  if (!/^\d{6}$/.test(token)) return fail('Enter the 6-digit code from the email.');
+  const { error } = await verifyLoginCode(pendingEmail, token);
+  if (error) return fail('That code did not match. Request a new one and try again.');
+  await loadBoard();
+}
+document.getElementById('btn-verify').addEventListener('click', doVerify);
+document.getElementById('f-code').addEventListener('keydown', e => { if (e.key === 'Enter') doVerify(); });
+document.getElementById('signout-na').addEventListener('click', async () => { await signOut(); show('auth-view'); });
+
+(async () => {
+  if (!configured) return;
+  if (hasMagicLinkHash()) await new Promise(r => setTimeout(r, 900));
+  (await currentUser()) ? loadBoard() : show('auth-view');
+})();
+</script>
+</body>
+</html>
