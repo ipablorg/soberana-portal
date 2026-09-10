@@ -1,0 +1,45 @@
+# Soberana Member Portal — GitHub Pages deploy (C-003 §1, §8)
+# Publishes on push to main. The glm/etapa1 branch builds nothing here —
+# the orchestrator merges to main after QA.
+
+name: Deploy portal to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stage site files (allowlist — no db reference docs)
+        run: |
+          mkdir -p dist
+          cp index.html apply.html submitted.html status.html favicon.svg loopay-logo-white.png robots.txt dist/
+          cp -r assets dist/assets
+          mkdir -p dist/review
+          cp review/index.html review/application.html review/seats.html dist/review/
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
