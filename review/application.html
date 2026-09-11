@@ -22,11 +22,11 @@
       <div class="kicker">Review</div>
       <h1>No review access</h1>
       <p class="lead" style="margin:0 auto">This account has no review access.</p>
-      <a class="btn ghost" href="index.html" style="margin-top:24px">Back to pipeline</a>
+      <a class="btn ghost" href="index.html" style="margin-top:24px">Pipeline</a>
     </div>
 
     <div id="detail" style="display:none">
-      <a href="index.html" class="hint" style="display:inline-block;text-decoration:none">← Pipeline</a>
+      <a href="index.html" class="hint" style="display:inline-block;text-decoration:none">Pipeline</a>
       <div id="head" style="margin:10px 0 6px"></div>
       <div id="totals-line" style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 4px"></div>
 
@@ -86,7 +86,7 @@ import {
   setStatus, fetchEvents, addEventNote,
 } from '../assets/api.js';
 
-chrome({ active: 'pipeline', depth: 1, internal: true });
+chrome({ active: '', depth: 1, internal: true });
 if (!configured) configBanner();
 
 const id = qs('id');

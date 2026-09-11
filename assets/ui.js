@@ -6,15 +6,23 @@ export const FOOTER_DISCLAIMER =
 /** Renders header + footer. `depth` = number of directory levels from repo root (0 root, 1 inside review/). */
 export function chrome({ active = '', depth = 0, internal = false } = {}) {
   const A = '../'.repeat(depth);
+  const NET = 'https://soberana.network/';
   const link = (href, label, key) =>
-    `<a href="${A}${href}" class="${active === key ? 'on' : ''}">${label}</a>`;
+    `<a href="${A}${href}" class="${active === key ? 'on' : ''}"${active === key ? ' aria-current="page"' : ''}>${label}</a>`;
+  const btn = (href, label, key) =>
+    `<a href="${A}${href}" class="btn sm ${active === key ? 'on' : ''}"${active === key ? ' aria-current="page"' : ''}>${label}</a>`;
   const nav = internal
-    ? `${link('review/index.html', 'Pipeline', 'pipeline')}${link('review/seats.html', 'Seats', 'seats')}${link('index.html', 'Public site', 'public')}<a href="#" id="nav-signout">Sign out</a>`
-    : `${link('index.html', 'Home', 'home')}${link('apply.html', 'Apply', 'apply')}${link('status.html', 'Application status', 'status')}${link('review/index.html', 'Reviewer sign-in', 'review')}`;
-  const disclaimer = internal ? '' : `<div class="foot"><div class="wrap">${FOOTER_DISCLAIMER.replaceAll('ASSETS', A)}</div></div>`;
+    ? `${link('review/index.html', 'Pipeline', 'pipeline')}${link('review/seats.html', 'Seat Registry', 'seats')}${link('index.html', 'Member Portal', 'public')}<a href="#" id="nav-signout">Sign Out</a>`
+    : `${link('index.html', 'Member Portal', 'home')}${btn('apply.html', 'Apply', 'apply')}${link('status.html', 'Application Status', 'status')}`;
+  // public resource set; portal-local routes use the depth prefix, network destinations are absolute
+  const resources = withReviewer =>
+    `<nav class="resource-links" aria-label="Network Links"><a href="${NET}">Network Home</a><a href="${A}index.html">Member Portal</a><a href="${A}status.html">Application Status</a><a href="${NET}manifesto.html">Founding Charter</a><a href="${NET}member-brief.pdf" target="_blank" rel="noopener noreferrer">Member Brief (PDF)</a><a href="https://sandbox.soberana.loopay.com/docs" target="_blank" rel="noopener noreferrer">API Docs</a>${withReviewer ? `<a href="${A}review/index.html">Reviewer Sign-In</a>` : ''}</nav>`;
+  const foot = internal
+    ? `<div class="foot"><div class="wrap">${resources(false)}</div></div>`
+    : `<div class="foot"><div class="wrap">${FOOTER_DISCLAIMER.replaceAll('ASSETS', A)}${resources(true)}</div></div>`;
   document.getElementById('site-header').innerHTML =
-    `<div class="hdr"><div class="wrap hdr-in"><a class="brand" href="${A}index.html">SOBERANA<b>.NETWORK</b></a><nav>${nav}</nav></div></div>`;
-  document.getElementById('site-footer').outerHTML = `<div id="site-footer">${disclaimer}</div>`;
+    `<div class="hdr"><div class="wrap hdr-in"><a class="brand" href="${NET}" aria-label="Network Home">SOBERANA<b>.NETWORK</b></a><nav>${nav}</nav></div></div>`;
+  document.getElementById('site-footer').outerHTML = `<div id="site-footer">${foot}</div>`;
   const so = document.getElementById('nav-signout');
   if (so) so.addEventListener('click', async e => {
     e.preventDefault();

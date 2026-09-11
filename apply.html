@@ -146,7 +146,8 @@
       </div>
 
       <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin:24px 0 8px">
-        <button class="btn" type="submit" id="submit-btn">Submit application</button>
+        <button class="btn" type="submit" id="submit-btn">Submit Application</button>
+        <a class="btn ghost" href="status.html">Application Status</a>
         <span class="err" id="form-err"></span>
       </div>
       <p class="note">Your application starts the eligibility review described in the network's membership criteria. No payment or investment is requested at this stage.</p>
@@ -250,7 +251,7 @@ document.getElementById('apply-form').addEventListener('submit', async ev => {
       return;
     }
     if (res.error === 'rate_limited') {
-      err.textContent = 'This email already has recent applications under review. Please check your status page or write to contact@soberana.network — you can re-apply later.';
+      err.textContent = 'This email already has recent applications under review. Check Application Status. You can re-apply later.';
       err.classList.add('show');
     } else {
       err.textContent = 'Please complete the highlighted fields.';

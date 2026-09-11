@@ -24,7 +24,7 @@
     <!-- signed-in view -->
     <div id="apps-view" style="display:none">
       <div id="apps-list" style="margin-top:26px"><div class="skel">Loading…</div></div>
-      <button class="btn ghost sm" id="signout" style="margin-top:18px">Sign out</button>
+      <button class="btn ghost sm" id="signout" style="margin-top:18px">Sign Out</button>
     </div>
 
     <!-- auth view -->
@@ -76,7 +76,7 @@ async function loadApps() {
   try {
     const [markets, apps] = await Promise.all([fetchMarkets(), myApplications(email)]);
     if (!apps.length) {
-      box.innerHTML = `<div class="card"><p style="color:var(--muted)">No applications found for <b style="color:#fff">${email}</b>.</p><p class="note">Applications appear here with the exact email you applied with. <a href="apply.html">Start an application →</a></p></div>`;
+      box.innerHTML = `<div class="card"><p style="color:var(--muted)">No applications found for <b style="color:#fff">${email}</b>.</p><p class="note">Applications appear here with the exact email you applied with. <a href="apply.html">Apply</a></p></div>`;
       return;
     }
     box.innerHTML = '';
@@ -95,7 +95,7 @@ async function loadApps() {
         </div>`);
     }
   } catch (e) {
-    box.innerHTML = '<div class="card"><p style="color:var(--muted)">Could not load your applications. Please try again.</p></div>';
+    box.innerHTML = '<div class="card"><p style="color:var(--muted)">Could not load your applications. Please try again.</p><div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:14px"><a class="btn ghost" href="status.html">Try Again</a></div></div>';
   }
 }
 
