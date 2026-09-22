@@ -5,37 +5,99 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>Application Received — The Soberana Network</title>
-<meta name="description" content="Your Soberana Network seat application has been received.">
+<meta name="description" content="Your Soberana Network application has been received. Keep your reference and follow the review on the status page.">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/portal.css">
 </head>
-<body>
+<body class="apply-v2">
 <div id="site-header"></div>
 <main>
-  <div class="wrap narrow" style="padding-top:72px;text-align:center">
-    <div class="kicker">Application received</div>
-    <h1>Thank you — it's in.</h1>
-    <div class="card" style="max-width:560px;margin:26px auto 0;text-align:left">
-      <p style="color:var(--muted);font-size:14.5px">Your reference code:</p>
-      <p style="font-family:var(--mono);font-size:26px;font-weight:600;color:#fff;letter-spacing:.04em" id="ref-code">—</p>
-      <p class="note" style="margin-top:16px">Your application starts the eligibility review described in the network's membership criteria. No payment or investment is requested at this stage.</p>
-      <p class="note">Keep the reference for your records. To follow the review, sign in on the status page with the same work email you applied with.</p>
-      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:20px">
-        <a class="btn" href="status.html">Application Status</a>
-        <a class="btn ghost" href="index.html">Member Portal</a>
+  <div class="wrap narrow" style="padding-top:72px">
+
+    <!-- verified receipt -->
+    <section id="receipt" hidden>
+      <div class="kicker">Application</div>
+      <h1>Application received</h1>
+      <div class="card">
+        <p class="hint">Reference</p>
+        <p class="ref-code" id="ref-code"></p>
+        <p id="cleanup-warning" class="fb warn" hidden>Your application was received, but this browser could not remove the saved draft. Clear this site's browser data when you are finished.</p>
+        <p class="note">Keep this reference. To view your application, use the status page and verify the email address you entered.</p>
+        <div class="entry-actions">
+          <button class="btn" type="button" id="btn-copy">Copy reference</button>
+          <a class="btn ghost" href="status.html">Check application status</a>
+        </div>
+        <p id="copy-status" class="hint" role="status"></p>
+        <p class="stages-label">Application review stages</p>
+        <div id="timeline-received"></div>
+        <p class="note">This shows the review sequence, not a promised schedule. Stages can require follow-up and do not guarantee admission.</p>
+        <p class="note">Scoring is an internal review stage. Scores and review notes are not shown in the applicant portal.</p>
+        <p class="note">Your application starts the eligibility review described in the network's membership criteria. No payment or investment is requested at this stage.</p>
       </div>
+    </section>
+
+    <!-- no verified receipt -->
+    <section id="no-receipt" hidden>
+      <div class="kicker">Application</div>
+      <h1>Check your application status</h1>
+      <div class="card">
+        <p class="step-intro">This page cannot verify receipt from a link alone. Use the status page and verify your email to see your applications.</p>
+        <p class="hint" id="link-ref-label">Reference from this link — not verified</p>
+        <p class="ref-code" id="link-ref"></p>
+        <p class="stages-label">Application review stages</p>
+        <div id="timeline-plain"></div>
+        <p class="note">This shows the review sequence, not a promised schedule. Stages can require follow-up and do not guarantee admission.</p>
+        <p class="note">Scoring is an internal review stage. Scores and review notes are not shown in the applicant portal.</p>
+        <div class="entry-actions">
+          <a class="btn" href="status.html">Check application status</a>
+        </div>
+      </div>
+    </section>
+
+    <div class="card" style="margin-top:14px">
+      <h2 style="font-size:18px">Beyond application review</h2>
+      <p class="step-intro">If the inquiry advances, the Legal Roadmap explains the possible MOU, diligence, agreement and onboarding stages. Application submission does not complete those stages.</p>
+      <div class="side-links" id="roadmap-link"></div>
     </div>
   </div>
 </main>
 <div id="site-footer"></div>
 <script type="module">
-import { chrome } from './assets/ui.js';
+import { chrome, timeline, qs, readReceipt, libLink } from './assets/ui.js';
+
 chrome({ active: '' });
-const ref = new URLSearchParams(window.location.search).get('ref');
-document.getElementById('ref-code').textContent = ref || 'SN-';
+
+const receipt = readReceipt(qs('ref'));
+const show = id => { document.getElementById(id).hidden = false; };
+
+if (receipt.ok) {
+  document.getElementById('ref-code').textContent = receipt.ref;
+  document.getElementById('timeline-received').innerHTML = timeline('received');
+  if (receipt.cleanupWarning) show('cleanup-warning');
+  show('receipt');
+  document.getElementById('btn-copy').addEventListener('click', async () => {
+    const ref = document.getElementById('ref-code').textContent;
+    const out = document.getElementById('copy-status');
+    try {
+      await navigator.clipboard.writeText(ref);
+      out.textContent = 'Reference copied.';
+    } catch {
+      out.textContent = 'Could not copy automatically. Select and copy the reference shown above.';
+    }
+  });
+} else {
+  if (receipt.linkRef) document.getElementById('link-ref').textContent = receipt.linkRef;
+  else document.getElementById('link-ref-label').hidden = true;
+  document.getElementById('timeline-plain').innerHTML = timeline('');
+  show('no-receipt');
+}
+
+document.getElementById('roadmap-link').append(
+  libLink(['Read the Legal Roadmap', 'https://soberana.network/legal-roadmap.pdf']),
+);
 </script>
 </body>
 </html>

@@ -4,264 +4,352 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>Apply for a Seat — The Soberana Network</title>
-<meta name="description" content="Apply for a Soberana Network seat — membership is by application and eligibility review for licensed local fintechs and payment institutions.">
+<title>Apply to Soberana — The Soberana Network</title>
+<meta name="description" content="Apply to The Soberana Network — membership is by application and eligibility review. Check your path, then complete five application steps.">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/portal.css">
 </head>
-<body>
+<body class="apply-v2">
 <div id="site-header"></div>
 <main>
   <div class="wrap narrow" style="padding-top:56px">
     <div id="config-banner" class="banner">This portal is not wired to its backend yet. The operator must fill <code>assets/config.js</code> with the project URL and anon key.</div>
+    <noscript><div class="fb warn">JavaScript is required to submit this application. Enable JavaScript and reload this page. You can still read the public document library.</div></noscript>
     <div class="kicker">Application</div>
-    <h1>Apply for a seat.</h1>
+    <h1>Apply to Soberana</h1>
     <p class="intro" style="color:var(--muted);font-size:16px;line-height:1.7;margin-bottom:30px">Membership is by application and eligibility review. This form is an invitation to inquire — it is not an offer of securities, and it takes no investment commitments. Capital terms are set out in the membership proposal and definitive agreements, provided to eligible recipients in permitted jurisdictions.</p>
 
-    <form id="apply-form" novalidate>
-      <div class="card">
-        <h2 style="font-size:18px">1 · Company</h2>
-        <div class="grid2">
-          <fieldset>
-            <label for="f-company">Company legal name <span class="req">*</span></label>
-            <input id="f-company" name="company" type="text" autocomplete="organization" required>
-          </fieldset>
-          <fieldset>
-            <label for="f-website">Website</label>
-            <input id="f-website" name="website" type="url" placeholder="https://">
-          </fieldset>
+    <p id="state-live" class="vh" aria-live="polite" aria-atomic="true"></p>
+
+    <!-- ============ entry screen ============ -->
+    <section id="entry">
+      <div class="card" id="draft-card" hidden>
+        <h2 style="font-size:18px">Continue your draft?</h2>
+        <p class="step-intro" id="draft-msg"></p>
+        <div class="entry-actions">
+          <button class="btn" type="button" id="btn-resume">Resume draft</button>
+          <button class="btn ghost" type="button" id="btn-discard">Discard draft</button>
         </div>
-        <fieldset>
-          <label for="f-entity">Entity class <span class="req">*</span></label>
-          <select id="f-entity" name="entity_class" required>
-            <option value="founding">Licensed fintech / PSP</option>
-            <option value="institutional">Bank or regulated FI</option>
-            <option value="sponsored">Unlicensed, with local distribution</option>
-          </select>
-          <p class="hint" id="entity-hint" style="display:none">Without a licence in at least one market, your route is the sponsored tier: you operate under a licensed member's seat and hold no seat yourself.</p>
-        </fieldset>
+        <p class="hint" id="draft-status"></p>
+      </div>
+
+      <div class="fb warn" id="discard-confirm" hidden>
+        <p>Delete this browser's application draft?</p>
+        <div class="fb-actions">
+          <button class="btn ghost" type="button" id="btn-delete-draft">Delete draft</button>
+          <button class="btn ghost" type="button" id="btn-keep-draft">Keep draft</button>
+        </div>
       </div>
 
       <div class="card">
-        <h2 style="font-size:18px">2 · Market</h2>
-        <div class="grid2">
-          <fieldset>
-            <label for="f-country">Country <span class="req">*</span></label>
-            <select id="f-country" name="country_code" required>
-              <option value="">Loading markets…</option>
-            </select>
+        <details id="guide-details">
+          <summary>Check your path</summary>
+          <p class="step-intro">See a possible review path and the evidence to prepare. This guide does not save or send your answers.</p>
+          <fieldset class="guide-q">
+            <legend class="guide-legend">How would you describe the applying entity?</legend>
+            <p class="hint">Choose the legal entity that would apply, not its parent or a service provider.</p>
+            <span class="chips">
+              <label class="chipopt"><input type="radio" name="g-entity" value="founding" autocomplete="off"><span>Licensed fintech or PSP</span></label>
+              <label class="chipopt"><input type="radio" name="g-entity" value="institutional" autocomplete="off"><span>Bank or regulated financial institution</span></label>
+              <label class="chipopt"><input type="radio" name="g-entity" value="sponsored" autocomplete="off"><span>Unlicensed business with distribution</span></label>
+            </span>
           </fieldset>
-          <fieldset>
-            <label for="f-market-other">Or, country not in the list</label>
-            <input id="f-market-other" name="market_other" type="text" placeholder="Country you would operate">
-          </fieldset>
-        </div>
-        <div class="grid2">
-          <fieldset>
-            <label for="f-rails">Rails you would operate <span class="req">*</span></label>
-            <input id="f-rails" name="rails_operated" type="text" placeholder="e.g. PIX, SPEI, ACH">
-          </fieldset>
-          <fieldset>
-            <label for="f-license-id">License / registration ID</label>
-            <input id="f-license-id" name="license_id" type="text">
-          </fieldset>
-        </div>
-        <fieldset>
-          <label for="f-regulator">Regulator</label>
-          <input id="f-regulator" name="regulator" type="text" placeholder="e.g. SFC, Banxico, BCB">
-        </fieldset>
-      </div>
-
-      <div class="card">
-        <h2 style="font-size:18px">3 · Scale</h2>
-        <div class="grid2">
-          <fieldset>
-            <label for="f-role">Operating role <span class="req">*</span></label>
-            <select id="f-role" name="operating_role" required>
-              <option>Payments</option>
-              <option>Remittances</option>
-              <option>Payroll</option>
-              <option>Wallet</option>
-              <option>PSP</option>
-              <option>Bank</option>
+          <fieldset class="guide-q">
+            <legend class="guide-legend">What is your main market?</legend>
+            <p class="hint">Market context does not establish permission to perform an activity.</p>
+            <label class="vh" for="g-market">What is your main market?</label>
+            <select id="g-market" autocomplete="off">
+              <option value="">Choose a market</option>
+              <option>Colombia</option>
+              <option>Mexico</option>
+              <option>Brazil</option>
+              <option>United States</option>
+              <option>Ecuador</option>
+              <option>Peru</option>
               <option>Other</option>
             </select>
           </fieldset>
-          <fieldset>
-            <label for="f-tpv">Approximate monthly TPV <span class="req">*</span></label>
-            <select id="f-tpv" name="tpv_band" required>
-              <option>under US$1M</option>
-              <option>US$1–10M</option>
-              <option>US$10–50M</option>
-              <option>over US$50M</option>
-            </select>
+          <fieldset class="guide-q">
+            <legend class="guide-legend">What is your main operating role?</legend>
+            <p class="hint">Describe the activity you perform today. This answer does not verify authorization.</p>
+            <span class="chips">
+              <label class="chipopt"><input type="radio" name="g-role" value="Payments" autocomplete="off"><span>Payments</span></label>
+              <label class="chipopt"><input type="radio" name="g-role" value="Remittances" autocomplete="off"><span>Remittances</span></label>
+              <label class="chipopt"><input type="radio" name="g-role" value="Payroll" autocomplete="off"><span>Payroll</span></label>
+              <label class="chipopt"><input type="radio" name="g-role" value="Wallet" autocomplete="off"><span>Wallet</span></label>
+              <label class="chipopt"><input type="radio" name="g-role" value="PSP" autocomplete="off"><span>PSP</span></label>
+              <label class="chipopt"><input type="radio" name="g-role" value="Bank" autocomplete="off"><span>Bank</span></label>
+              <label class="chipopt"><input type="radio" name="g-role" value="Other" autocomplete="off"><span>Other</span></label>
+            </span>
           </fieldset>
+          <div id="guide-result" class="guide-result"></div>
+        </details>
+        <p class="boundary">This is guidance only. It does not verify eligibility, reserve a seat or guarantee admission. Every application is subject to review.</p>
+        <p id="guide-live" class="vh" aria-live="polite" aria-atomic="true"></p>
+        <div class="entry-actions">
+          <button class="btn" type="button" id="btn-start">Start application</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ wizard ============ -->
+    <form id="apply-form" novalidate hidden>
+      <p id="restored-note" class="fb" hidden>Your draft is restored. Review your answers and confirm consent before submitting.</p>
+      <div id="conflict-card" class="fb warn" hidden>
+        <p>This browser draft changed in another tab. Your current answers have not been replaced.</p>
+        <div class="fb-actions">
+          <button class="btn ghost" type="button" id="btn-keep-answers">Keep these answers</button>
+          <button class="btn ghost" type="button" id="btn-load-saved">Load saved draft</button>
         </div>
       </div>
 
-      <div class="card">
-        <h2 style="font-size:18px">4 · Network fit</h2>
-        <div class="grid2">
-          <fieldset>
-            <label for="f-corr-out">Corridors you would contribute</label>
-            <input id="f-corr-out" name="corridors_contribute" type="text" placeholder="Markets where you hold licenses and distribution">
-          </fieldset>
-          <fieldset>
-            <label for="f-corr-in">Corridors you hope to receive</label>
-            <input id="f-corr-in" name="corridors_receive" type="text" placeholder="Markets where you need payout">
-          </fieldset>
-        </div>
-        <fieldset>
-          <label for="f-contribution">What would your seat contribute to the network?</label>
-          <textarea id="f-contribution" name="contribution"></textarea>
-        </fieldset>
+      <ol id="progress" class="progress" aria-label="Application steps">
+        <li data-step="1"><span data-slot></span></li>
+        <li data-step="2"><span data-slot></span></li>
+        <li data-step="3"><span data-slot></span></li>
+        <li data-step="4"><span data-slot></span></li>
+        <li data-step="5"><span data-slot></span></li>
+      </ol>
+
+      <div id="err-summary" class="err-summary" role="alert" tabindex="-1" hidden>
+        <p class="err-summary-t" id="err-summary-t">Check the highlighted fields before continuing.</p>
+        <ul id="err-list"></ul>
       </div>
 
-      <div class="card">
-        <h2 style="font-size:18px">5 · Contact</h2>
-        <div class="grid2">
-          <fieldset>
-            <label for="f-contact">Contact name <span class="req">*</span></label>
-            <input id="f-contact" name="contact_name" type="text" autocomplete="name" required>
+      <div class="wiz-grid">
+        <div class="step-main">
+          <p class="step-tag" id="step-tag">Step 1 of 5</p>
+
+          <!-- ===== Step 1 · Company ===== -->
+          <fieldset id="step-1" hidden>
+            <h2 class="step-h" id="sh-1" tabindex="-1">Tell us about the applying entity</h2>
+            <p class="step-intro">Use the legal entity whose activities you want reviewed. A parent company's permissions do not automatically cover a subsidiary.</p>
+            <p class="required-note">Fields marked * are required.</p>
+            <div class="grid2">
+              <fieldset>
+                <label for="f-company">Legal company name <span class="req">*</span></label>
+                <input id="f-company" name="company" type="text" autocomplete="organization" required>
+              </fieldset>
+              <fieldset>
+                <label for="f-website">Company website (optional)</label>
+                <input id="f-website" name="website" type="url" placeholder="https://" aria-describedby="hint-website">
+                <p class="hint" id="hint-website">Enter a public company website, including https://. Do not include private document links.</p>
+              </fieldset>
+            </div>
+            <fieldset>
+              <label for="f-entity">Entity class <span class="req">*</span></label>
+              <select id="f-entity" name="entity_class" required aria-describedby="hint-entity">
+                <option value="">Choose an entity class</option>
+                <option value="founding">Licensed fintech or PSP</option>
+                <option value="institutional">Bank or regulated financial institution</option>
+                <option value="sponsored">Unlicensed business with distribution</option>
+              </select>
+              <p class="hint" id="hint-entity">This self-description identifies a review path. It does not establish eligibility.</p>
+              <p class="hint" id="entity-notice" hidden></p>
+            </fieldset>
+            <fieldset>
+              <label for="f-draft" id="label-draft" style="text-transform:none;letter-spacing:0;font-family:var(--sans);font-size:13.5px;display:flex;gap:9px;align-items:flex-start">
+                <input type="checkbox" id="f-draft" style="margin-top:3px">
+                <span>Save a draft in this browser</span>
+              </label>
+              <p class="hint" id="draft-note">This stores application details on this device, including the contact name and email once entered. Anyone using this browser profile may be able to read them. Do not enable this on a shared device. Drafts are not submitted or synced.</p>
+              <p class="hint">Drafts expire after 7 days and are removed the next time this page checks them. You can delete yours at any time.</p>
+            </fieldset>
           </fieldset>
-          <fieldset>
-            <label for="f-email">Work email <span class="req">*</span></label>
-            <input id="f-email" name="contact_email" type="email" autocomplete="email" required>
+
+          <!-- ===== Step 2 · Market & permissions ===== -->
+          <fieldset id="step-2" hidden>
+            <h2 class="step-h" id="sh-2" tabindex="-1">Describe your market and permissions</h2>
+            <p class="step-intro">Describe the applying entity's actual activity. A payment rail, registration and authorization are different things.</p>
+            <p class="required-note">Fields marked * are required.</p>
+            <div class="grid2">
+              <fieldset>
+                <label for="f-country">Main market <span class="req">*</span></label>
+                <select id="f-country" name="country_code" required>
+                  <option value="">Choose a market</option>
+                  <option value="__other">Other</option>
+                </select>
+                <div id="market-fallback" class="fb bad" hidden>
+                  <p>We could not load the market list. Try again or choose Other and name your market.</p>
+                  <div class="fb-actions"><button class="btn ghost" type="button" id="btn-market-retry">Try again</button></div>
+                </div>
+              </fieldset>
+              <fieldset id="market-other-field" hidden>
+                <label for="f-market-other">Name your market <span class="req">*</span></label>
+                <input id="f-market-other" name="market_other" type="text" required aria-describedby="hint-market-other">
+                <p class="hint" id="hint-market-other">Enter the country or jurisdiction relevant to this entity.</p>
+              </fieldset>
+            </div>
+            <fieldset>
+              <label for="f-rails">Rails operated <span class="req">*</span></label>
+              <input id="f-rails" name="rails_operated" type="text" placeholder="Systems and access arrangements" required aria-describedby="hint-rails">
+              <p class="hint" id="hint-rails">Name the systems you operate on and describe any access through another institution. If you do not currently operate on a rail, say so.</p>
+            </fieldset>
+            <div class="grid2">
+              <fieldset>
+                <label for="f-regulator" id="label-regulator">Regulator (optional)</label>
+                <input id="f-regulator" name="regulator" type="text" aria-describedby="hint-regulator">
+                <p class="hint" id="hint-regulator">Name the authority relevant to this entity and activity.</p>
+              </fieldset>
+              <fieldset>
+                <label for="f-license-id" id="label-license">License or registration ID (optional)</label>
+                <input id="f-license-id" name="license_id" type="text" aria-describedby="hint-license">
+                <p class="hint" id="hint-license">Provide the reference you can evidence. A registration is not automatically an authorization.</p>
+              </fieldset>
+            </div>
+            <p class="hint" id="perm-note" hidden></p>
+          </fieldset>
+
+          <!-- ===== Step 3 · Scale & corridors ===== -->
+          <fieldset id="step-3" hidden>
+            <h2 class="step-h" id="sh-3" tabindex="-1">Describe your activity and contribution</h2>
+            <p class="step-intro">Distinguish current activity from plans. Corridor interests do not establish availability or access.</p>
+            <p class="required-note">Fields marked * are required.</p>
+            <div class="grid2">
+              <fieldset>
+                <label for="f-role">Operating role <span class="req">*</span></label>
+                <select id="f-role" name="operating_role" required aria-describedby="hint-role">
+                  <option value="">Choose an operating role</option>
+                  <option>Payments</option>
+                  <option>Remittances</option>
+                  <option>Payroll</option>
+                  <option>Wallet</option>
+                  <option>PSP</option>
+                  <option>Bank</option>
+                  <option>Other</option>
+                </select>
+                <p class="hint" id="hint-role">Describe the activity you perform today. This answer does not verify authorization.</p>
+              </fieldset>
+              <fieldset>
+                <label for="f-tpv">Monthly TPV band <span class="req">*</span></label>
+                <select id="f-tpv" name="tpv_band" required aria-describedby="hint-tpv">
+                  <option value="">Choose a monthly TPV band</option>
+                  <option>under US$1M</option>
+                  <option>US$1–10M</option>
+                  <option>US$10–50M</option>
+                  <option>over US$50M</option>
+                </select>
+                <p class="hint" id="hint-tpv">Select the band that best describes current monthly payment activity. This is an operating profile, not an investment commitment.</p>
+              </fieldset>
+            </div>
+            <div class="grid2">
+              <fieldset>
+                <label for="f-corr-out">Corridors you could contribute (optional)</label>
+                <input id="f-corr-out" name="corridors_contribute" type="text" aria-describedby="hint-corr">
+              </fieldset>
+              <fieldset>
+                <label for="f-corr-in">Corridors you hope to receive (optional)</label>
+                <input id="f-corr-in" name="corridors_receive" type="text" aria-describedby="hint-corr">
+              </fieldset>
+            </div>
+            <p class="hint" id="hint-corr">Name the markets and direction of the activity. Identify plans as plans.</p>
+            <fieldset>
+              <label for="f-contribution">Proposed contribution (optional)</label>
+              <textarea id="f-contribution" name="contribution" aria-describedby="hint-contribution"></textarea>
+              <p class="hint" id="hint-contribution">Explain the current licensed activity and distribution you could contribute.</p>
+              <p class="hint">Do not include customer data, credentials or confidential documents.</p>
+            </fieldset>
+          </fieldset>
+
+          <!-- ===== Step 4 · Contact & consent ===== -->
+          <fieldset id="step-4" hidden>
+            <h2 class="step-h" id="sh-4" tabindex="-1">Choose the application contact</h2>
+            <p class="step-intro">Use an email address you can access. You will use email verification on the status page to view applications associated with that address.</p>
+            <p class="required-note">Fields marked * are required.</p>
+            <div class="grid2">
+              <fieldset>
+                <label for="f-contact">Contact name <span class="req">*</span></label>
+                <input id="f-contact" name="contact_name" type="text" autocomplete="name" required>
+              </fieldset>
+              <fieldset>
+                <label for="f-email">Work email <span class="req">*</span></label>
+                <input id="f-email" name="contact_email" type="email" autocomplete="email" required aria-describedby="hint-email">
+                <p class="hint" id="hint-email">Check the address carefully. This application does not send a submission receipt by email.</p>
+              </fieldset>
+            </div>
+            <fieldset>
+              <label for="f-consent" style="text-transform:none;letter-spacing:0;font-family:var(--sans);font-size:13.5px;display:flex;gap:9px;align-items:flex-start">
+                <input type="checkbox" id="f-consent" required style="margin-top:3px" aria-describedby="hint-consent">
+                <span>I consent to the processing of this information for the network's eligibility review, and I understand this form is an invitation to inquire — not an offer of securities — and takes no investment commitments. <span class="req">*</span></span>
+              </label>
+              <p class="hint" id="hint-consent">Submission starts eligibility review. It does not commit you to membership or investment.</p>
+            </fieldset>
+            <!-- honeypot: humans never see or fill this; bots do -->
+            <fieldset class="hp" aria-hidden="true">
+              <label for="f-company_web">Company web</label>
+              <input id="f-company_web" name="company_web" type="text" tabindex="-1" autocomplete="off">
+            </fieldset>
+          </fieldset>
+
+          <!-- ===== Step 5 · Review & submit ===== -->
+          <fieldset id="step-5" hidden>
+            <h2 class="step-h" id="sh-5" tabindex="-1">Review your application</h2>
+            <p class="step-intro">Check the applying entity, operating details and contact email before submitting. You can edit any section.</p>
+            <p id="review-notice" class="hint">If you previously submitted or left before confirmation, check your status before submitting again.</p>
+            <div id="attempt-card" class="fb warn" hidden>
+              <p id="attempt-msg"></p>
+              <div class="fb-actions">
+                <button class="btn ghost" type="button" id="btn-status-uncertain">Check application status</button>
+                <button class="btn ghost" type="button" id="btn-return-review">Return to review</button>
+              </div>
+            </div>
+            <div id="retry-warning" class="fb warn" hidden>
+              <p>A second submission may create a duplicate if the first request completed. Status may take time to update.</p>
+              <div class="fb-actions"><button class="btn ghost" type="button" id="btn-retry-yes">I checked my status and want to submit again</button></div>
+            </div>
+            <div id="review-cards" class="rev-cards"></div>
+            <p class="note">Your application starts the eligibility review described in the network's membership criteria. No payment or investment is requested at this stage.</p>
+            <p class="note">Submitting sends these answers for eligibility review. It does not make a payment, reserve a seat or guarantee admission.</p>
+            <p id="slow-note" class="fb warn" hidden>This is taking longer than expected. Keep this page open; do not submit again.</p>
+            <p id="nosession-note" class="fb warn" hidden>This browser cannot preserve submission state after you leave. If you leave before confirmation, check your status before submitting again.</p>
+            <p id="submit-err" class="err" role="alert" tabindex="-1" hidden></p>
           </fieldset>
         </div>
-        <fieldset>
-          <label style="text-transform:none;letter-spacing:0;font-family:var(--sans);font-size:13.5px;display:flex;gap:9px;align-items:flex-start">
-            <input type="checkbox" id="f-consent" required style="margin-top:3px">
-            <span>I consent to the processing of this information for the network's eligibility review, and I understand this form is an invitation to inquire — not an offer of securities — and takes no investment commitments. <span class="req">*</span></span>
-          </label>
-        </fieldset>
-        <!-- honeypot: humans never see or fill this; bots do -->
-        <fieldset class="hp" aria-hidden="true">
-          <label for="f-company_web">Company web</label>
-          <input id="f-company_web" name="company_web" type="text" tabindex="-1" autocomplete="off">
-        </fieldset>
+
+        <aside class="side">
+          <div class="card">
+            <details id="side-details" open>
+              <summary>What happens next</summary>
+              <p class="side-stage" id="side-stage"></p>
+              <p class="side-body" id="side-body"></p>
+              <p class="side-evidence" id="side-evidence"></p>
+              <div class="side-links" id="side-links"></div>
+            </details>
+          </div>
+        </aside>
       </div>
 
-      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin:24px 0 8px">
-        <button class="btn" type="submit" id="submit-btn">Submit Application</button>
-        <a class="btn ghost" href="status.html">Application Status</a>
-        <span class="err" id="form-err"></span>
+      <div class="review-actions">
+        <button class="btn ghost" type="button" id="btn-back">Back to introduction</button>
+        <button class="btn" type="button" id="btn-next">Continue</button>
+        <span id="submit-row" hidden>
+          <button class="btn" type="submit" id="submit-btn">Submit application</button>
+        </span>
       </div>
-      <p class="note">Your application starts the eligibility review described in the network's membership criteria. No payment or investment is requested at this stage.</p>
     </form>
+
+    <div id="inline-receipt" class="card" hidden>
+      <h2 style="font-size:18px">Application received</h2>
+      <p class="hint">Reference</p>
+      <p class="ref-code" id="inline-ref"></p>
+      <p class="note">Your application starts the eligibility review described in the network's membership criteria. No payment or investment is requested at this stage.</p>
+      <div class="entry-actions">
+        <a class="btn" href="status.html">Check application status</a>
+      </div>
+    </div>
   </div>
 </main>
 <div id="site-footer"></div>
 <script type="module">
-import { chrome, configBanner, toast } from './assets/ui.js';
-import { configured, sb, submitApplication, fetchMarkets } from './assets/api.js';
+import { chrome, configBanner, initApply } from './assets/ui.js';
+import { configured, submitApplication, fetchMarkets } from './assets/api.js';
 
 chrome({ active: 'apply' });
-if (!configured) {
-  configBanner();
-  document.getElementById('submit-btn').disabled = true;
-}
-
-// markets select, live first
-if (configured) {
-  try {
-    const markets = await fetchMarkets();
-    const sorted = [...markets].sort((a, b) => (b.live - a.live) || a.name.localeCompare(b.name));
-    document.getElementById('f-country').innerHTML =
-      '<option value=""></option>' +
-      sorted.map(m => `<option value="${m.code}">${m.name}${m.live ? '' : ' (coming online)'}</option>`).join('') +
-      '<option value="__other">Other…</option>';
-    document.getElementById('f-country').addEventListener('change', e => {
-      document.getElementById('f-market-other').parentElement.style.display = '';
-    });
-  } catch { /* market list optional for submit; market_other covers it */ }
-}
-document.getElementById('f-country').addEventListener('change', e => {
-  if (e.target.value === '__other') { e.target.value = ''; document.getElementById('f-market-other').focus(); }
-});
-document.getElementById('f-entity').addEventListener('change', e => {
-  document.getElementById('entity-hint').style.display = e.target.value === 'sponsored' ? 'block' : 'none';
-});
-
-const REQUIRED = ['f-company', 'f-contact', 'f-email', 'f-consent'];
-const needMarket = () => {
-  const c = document.getElementById('f-country').value.trim();
-  const o = document.getElementById('f-market-other').value.trim();
-  return !(c || o);
-};
-
-document.getElementById('apply-form').addEventListener('submit', async ev => {
-  ev.preventDefault();
-  const err = document.getElementById('form-err');
-  err.classList.remove('show');
-
-  // inline validation (RPC also validates — this is the friendly layer)
-  let firstBad = null;
-  const mark = (id, bad) => {
-    const el = document.getElementById(id);
-    el.classList.toggle('invalid', bad);
-    if (bad && !firstBad) firstBad = el;
-  };
-  mark('f-company', !document.getElementById('f-company').value.trim());
-  mark('f-contact', !document.getElementById('f-contact').value.trim());
-  const email = document.getElementById('f-email').value.trim();
-  mark('f-email', !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
-  mark('f-consent', !document.getElementById('f-consent').checked);
-  mark('f-rails', !document.getElementById('f-rails').value.trim());
-  const marketMissing = needMarket();
-  mark('f-country', marketMissing);
-  mark('f-market-other', marketMissing);
-  if (firstBad) {
-    err.textContent = 'Please complete the highlighted fields.';
-    err.classList.add('show');
-    firstBad.focus();
-    return;
-  }
-
-  const val = id => document.getElementById(id).value.trim();
-  const payload = {
-    company: val('f-company'),
-    website: val('f-website'),
-    entity_class: val('f-entity'),
-    country_code: val('f-country'),
-    market_other: val('f-market-other'),
-    rails_operated: val('f-rails'),
-    regulator: val('f-regulator'),
-    license_id: val('f-license-id'),
-    operating_role: val('f-role'),
-    tpv_band: val('f-tpv'),
-    corridors_contribute: val('f-corr-out'),
-    corridors_receive: val('f-corr-in'),
-    contribution: val('f-contribution'),
-    contact_name: val('f-contact'),
-    contact_email: email,
-    consent: document.getElementById('f-consent').checked,
-    company_web: val('f-company_web'), // honeypot
-  };
-
-  const btn = document.getElementById('submit-btn');
-  btn.disabled = true;
-  try {
-    const res = await submitApplication(payload);
-    if (res.ok) {
-      window.location.href = 'submitted.html' + (res.ref ? '?ref=' + encodeURIComponent(res.ref) : '');
-      return;
-    }
-    if (res.error === 'rate_limited') {
-      err.textContent = 'This email already has recent applications under review. Check Application Status. You can re-apply later.';
-      err.classList.add('show');
-    } else {
-      err.textContent = 'Please complete the highlighted fields.';
-      err.classList.add('show');
-    }
-  } catch (e) {
-    toast('Could not submit right now — please try again.', true);
-  }
-  btn.disabled = false;
-});
+if (!configured) configBanner();
+initApply({ configured, submitApplication, fetchMarkets });
 </script>
 </body>
 </html>
