@@ -16,7 +16,7 @@
 <div id="site-header"></div>
 <main>
   <div class="wrap narrow" style="padding-top:56px">
-    <div id="config-banner" class="banner">This portal is not wired to its backend yet. The operator must fill <code>assets/config.js</code> with the project URL and anon key.</div>
+    <div id="config-banner" class="banner">This portal is not wired to its backend yet. The operator must fill <code>assets/config.js</code> with the project's <code>firebaseConfig</code> block.</div>
     <noscript><div class="fb warn">JavaScript is required to submit this application. Enable JavaScript and reload this page. You can still read the public document library.</div></noscript>
     <div class="kicker">Application</div>
     <h1>Apply to Soberana</h1>
@@ -257,7 +257,7 @@
           <!-- ===== Step 4 · Contact & consent ===== -->
           <fieldset id="step-4" hidden>
             <h2 class="step-h" id="sh-4" tabindex="-1">Choose the application contact</h2>
-            <p class="step-intro">Use an email address you can access. You will use email verification on the status page to view applications associated with that address.</p>
+            <p class="step-intro">Use an email address you can access. We'll email you a secure sign-in link to verify your address and submit — the application is sent under this address.</p>
             <p class="required-note">Fields marked * are required.</p>
             <div class="grid2">
               <fieldset>
@@ -268,6 +268,8 @@
                 <label for="f-email">Work email <span class="req">*</span></label>
                 <input id="f-email" name="contact_email" type="email" autocomplete="email" required aria-describedby="hint-email">
                 <p class="hint" id="hint-email">Check the address carefully. This application does not send a submission receipt by email.</p>
+                <p class="fb" id="verify-status" hidden></p>
+                <button class="btn ghost sm" type="button" id="btn-send-link">Email me a secure sign-in link</button>
               </fieldset>
             </div>
             <fieldset>
@@ -345,11 +347,27 @@
 <div id="site-footer"></div>
 <script type="module">
 import { chrome, configBanner, initApply } from './assets/ui.js';
-import { configured, submitApplication, fetchMarkets } from './assets/api.js';
+import {
+  configured, submitApplication, fetchMarkets,
+  authReady, completeSignIn, userEmail, sendSignInLink,
+} from './assets/api.js';
 
 chrome({ active: 'apply' });
 if (!configured) configBanner();
-initApply({ configured, submitApplication, fetchMarkets });
+
+// settle any persisted session, then complete an email-link return (C-003b):
+// the wizard comes back to Contact with the verified address locked in
+await authReady();
+const verifiedReturn = await completeSignIn();
+
+initApply({
+  configured,
+  submitApplication,
+  fetchMarkets,
+  getSessionEmail: userEmail,
+  sendSignInLink,
+  verifiedReturn,
+});
 </script>
 </body>
 </html>

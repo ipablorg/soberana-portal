@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<title>Firestore rules probes — Soberana portal (emulator only)</title>
+<link rel="stylesheet" href="../assets/portal.css">
+<style>body{font-family:monospace;max-width:900px;margin:40px auto;padding:0 16px}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:6px 10px;text-align:left;font-size:13px}.pass{color:#0a7d33}.fail{color:#c0392b}</style>
+</head>
+<body>
+<div class="banner show">Emulator-only QA harness (C-003b §Notas — §9 re-read as rules probes). Start the Firebase emulators first, serve this repo over http (never file://), and open this page with <code>?emulator=1</code>. See <code>tests/README.md</code>.</div>
+<h1>Firestore rules probes</h1>
+<table><thead><tr><th>Probe</th><th>Result</th><th>Detail</th></tr></thead><tbody id="out"></tbody></table>
+<p id="summary"></p>
+<script type="module">
+/* Runs the real adapter (assets/api.js) against the Auth + Firestore emulators.
+   Seeding uses the emulator's admin bypass (Bearer owner); sign-ins use the
+   emulator oob-code inbox, so the email-link flow itself is exercised. */
+import {
+  configured, EMULATOR, authReady, sendSignInLink, signInWithEmailLinkCode, signOut,
+  submitApplication, myApplications, saveScores, fetchScores,
+} from '../assets/api.js';
+import { firebaseConfig } from '../assets/config.js';
+import { computeTotals } from '../assets/scoring.js';
+import { getApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
+import {
+  getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc,
+} from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
+
+const out = document.getElementById('out');
+const row = (name, pass, detail = '') =>
+  out.insertAdjacentHTML('beforeend', `<tr><td>${name}</td><td class="${pass ? 'pass' : 'fail'}">${pass ? 'PASS' : 'FAIL'}</td><td>${detail}</td></tr>`);
+
+if (!EMULATOR) {
+  // hard stop BEFORE any SDK call: no seeding, no sign-in, no writes to a real project
+  row('emulator guard', false, 'Not in emulator mode — probes against a production project are FORBIDDEN. Start the Firebase emulators and open with ?emulator=1.');
+  document.getElementById('summary').innerHTML = '<b class="fail">Blocked: 0 probes executed.</b>';
+  throw new Error('rules-probe requires ?emulator=1 with the Firebase emulators running');
+}
+
+const db = getFirestore(getApp());
+const FS = `http://localhost:8080/v1/projects/${firebaseConfig.projectId}/documents`;
+const OOBS = `http://localhost:9099/emulator/v1/projects/${firebaseConfig.projectId}/oobCodes`;
+const s = v => ({ stringValue: v });
+const i = v => ({ integerValue: String(v) });
+const b = v => ({ booleanValue: v });
+const arr = a => ({ arrayValue: { values: a.map(s) } });
+
+const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
+const denied = async fn => { try { await fn(); return false; } catch (e) { return e.code === 'permission-denied' || /PERMISSION_DENIED/.test(String(e)); } };
+const hiddenList = async q => { try { return (await getDocs(q)).size === 0; } catch (e) { return denied(async () => { throw e; }); } };
+
+async function ownerCreate(col, docId, fields) {
+  const r = await fetch(`${FS}/${col}?documentId=${encodeURIComponent(docId)}`, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer owner', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fields }),
+  });
+  expect(r.ok, `owner seed ${col}/${docId} → HTTP ${r.status}`);
+}
+
+async function linkSignIn(email) {
+  await signOut();
+  await sendSignInLink(email, location.href); // exercises the adapter's own send path
+  const r = await fetch(OOBS);
+  const codes = ((await r.json()).oobCodes || []).filter(c => c.email === email);
+  const code = codes[codes.length - 1]?.oobCode;
+  expect(code, `emulator oob code for ${email}`);
+  await signInWithEmailLinkCode(email, `${location.origin}${location.pathname}?mode=signIn&oobCode=${code}`);
+  await authReady();
+}
+
+const payload = email => ({
+  company: 'Acme Payments SAS', website: 'https://acme.example', entity_class: 'founding',
+  country_code: 'CO', market_other: '', rails_operated: 'ACH Colombia', regulator: '', license_id: '',
+  operating_role: 'Payments', tpv_band: 'under US$1M', corridors_contribute: '', corridors_receive: '',
+  contribution: '', contact_name: 'Ana Founder', contact_email: email, consent: true, company_web: '',
+});
+
+try {
+  /* --- seed via emulator admin bypass --- */
+  await ownerCreate('markets', 'CO', { name: s('Colombia'), rails: arr(['ACH', 'Nequi']), live: b(true), seat_total: i(4), seats_allocated: i(0) });
+  for (const [code, w, sort] of [['D2', 20, 1], ['D3', 15, 2], ['D5', 20, 3], ['D6', 25, 4], ['D7', 20, 5]]) {
+    await ownerCreate('dimensions', code, { label: s(`Dimension ${code}`), weight: i(w), sort: i(sort), band_guide: s('seeded by probe') });
+  }
+
+  /* --- P0 · anonymous sees no applications --- */
+  row('P0 anonymous: applications list denied', await denied(() => getDocs(collection(db, 'applications'))));
+
+  /* --- applicant A signs in with a real email-link round trip --- */
+  const A = 'applicant-a@example.com';
+  await linkSignIn(A);
+  const res = await submitApplication(payload(A));
+  expect(res.ok && res.id && isValidRefShape(res.ref), `submit → ${JSON.stringify(res)}`);
+  row('P1 applicant submit (adapter) accepted', true, `ref ${res.ref}`);
+  function isValidRefShape(ref) { return /^SN-\d{4}-[0-9A-Za-z]{4}$/.test(ref); }
+
+  const mine = await myApplications(A);
+  expect(mine.length === 1 && mine[0].ref === res.ref, `myApplications → ${mine.length}`);
+  row('P2 applicant sees exactly her own doc', true, mine[0].ref);
+
+  row('P3a non-reviewer reads 0 dimensions', await hiddenList(collection(db, 'dimensions')));
+  row('P3b non-reviewer reads 0 gates of her own app', await hiddenList(collection(db, 'applications', res.id, 'gates')));
+  row('P3c non-reviewer reads 0 scores of her own app', await hiddenList(collection(db, 'applications', res.id, 'scores')));
+  row('P3d non-reviewer cannot write events (append-only to reviewers)', await denied(() => setDoc(doc(collection(db, 'applications', res.id, 'events')), { actor: s('x'), event: s('note'), detail: s('nope'), created_at: s('now') })));
+
+  /* --- applicant B: isolation + contact_email binding --- */
+  const B = 'applicant-b@example.com';
+  await linkSignIn(B);
+  const theirs = await myApplications(B);
+  expect(theirs.length === 0, `B sees ${theirs.length} of A's docs`);
+  row('P4a other applicant sees 0 of A applications', true);
+  row('P4b other applicant cannot read A doc', await denied(() => getDoc(doc(db, 'applications', res.id))));
+  row('P4c rules reject contact_email ≠ token email', await denied(() => setDoc(doc(collection(db, 'applications')), {
+    ...Object.fromEntries(Object.entries(payload(A)).map(([k, v]) => [k, typeof v === 'boolean' ? b(v) : s(v)])),
+    contact_email: s(A), ref: s('SN-2026-zzzz'), status: s('received'), outcome: s('advance'),
+    source: s('portal'), created_at: s('2026-01-01T00:00:00Z'),
+  })));
+
+  /* --- reviewer: weights visible, points capped by weight, decisions admin-only --- */
+  const R = 'reviewer@example.com';
+  await linkSignIn(R);
+  const uid = (await authReady())?.uid;
+  await ownerCreate('reviewers', uid, { email: s(R), role: s('reviewer'), active: b(true) });
+  const over = await saveScores([{ application_id: res.id, dimension_code: 'D2', points: 999, note: null }]);
+  expect(over && /denied/i.test(String(over.code || over)), `points>weight → ${over}`);
+  row('P5a points > weight rejected by rules', true, String(over.code || over.message));
+  const okScore = await saveScores([{ application_id: res.id, dimension_code: 'D2', points: 12, note: null }]);
+  expect(okScore === null, `points ≤ weight accepted → ${okScore}`);
+  const saved = await fetchScores(res.id);
+  expect(saved.length === 1 && saved[0].points === 12, 'score row persisted');
+  row('P5b points ≤ weight accepted', true, 'D2 = 12/20');
+  row('P5c reviewer reads dimension weights', (await getDocs(collection(db, 'dimensions'))).size === 5);
+  row('P6 non-admin cannot write decisions', await denied(() => setDoc(doc(db, 'applications', res.id, 'decisions', 'decision'), { outcome: s('advance') })));
+  await setDoc(doc(collection(db, 'applications', res.id, 'events')), { actor: s(R), event: s('note'), detail: s('probe-event'), created_at: s('now') });
+  const evs = await getDocs(collection(db, 'applications', res.id, 'events'));
+  const evId = evs.docs.find(d => d.data().detail === 'probe-event')?.id;
+  expect(evId, 'reviewer event created');
+  row('P7 events immutable once written', await denied(() => updateDoc(doc(db, 'applications', res.id, 'events', evId), { detail: s('tampered') })));
+
+  /* --- P8 bands (client-side totals, C-001 examples) --- */
+  const DIMS = [{ weight: 20 }, { weight: 15 }, { weight: 20 }, { weight: 25 }, { weight: 20 }];
+  const GATES = ['D1_license', 'D1_funds_flow', 'D4_sandbox', 'D5_program', 'D6_live_flows'].map(g => ({ gate_code: g, result: 'pass' }));
+  const sc = pts => pts.map((p, n) => ({ points: p }));
+  const band = pts => computeTotals({ gates: GATES, scores: sc(pts), dimensions: DIMS }).band;
+  row('P8 bands: 72→advance · 55→conditional · 45→decline',
+    band([15, 10, 15, 20, 12]) === 'advance' && band([12, 8, 12, 13, 10]) === 'conditional' && band([10, 5, 10, 10, 10]) === 'decline');
+} catch (e) {
+  row('harness', false, String(e));
+}
+
+const cells = [...out.querySelectorAll('td:nth-child(2)')];
+const bad = cells.filter(c => c.classList.contains('fail')).length;
+document.getElementById('summary').innerHTML =
+  `<b>${cells.length - bad}/${cells.length} probes passed</b>${bad ? ` — ${bad} FAILED` : ' — rules parity with C-003 §9 confirmed'}`;
+await signOut();
+</script>
+</body>
+</html>

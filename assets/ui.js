@@ -93,7 +93,7 @@ export function qs(name) {
 /* ==================================================================
    Apply v2 (R-015) — presentation only. Inert unless apply.html calls
    initApply() or submitted.html calls readReceipt(). No network helper,
-   Supabase client or schema code lives here.
+   Firebase client or schema code lives here.
    ================================================================== */
 
 const ROLES = ['Payments', 'Remittances', 'Payroll', 'Wallet', 'PSP', 'Bank', 'Other'];
@@ -281,13 +281,19 @@ function isHttpUrl(raw) {
   } catch { return false; }
 }
 
-/** `SN-YYYY-NNNN…` family — 4-digit year, 4 or more sequence digits. */
+/** `SN-YYYY-XXXX` family — 4-digit year, 4+ alphanumeric characters (refs suffix
+ *  the client-generated Firestore doc id, which mixes letters and digits). */
 export function isValidRef(ref) {
-  return typeof ref === 'string' && /^SN-\d{4}-\d{4,}$/.test(ref);
+  return typeof ref === 'string' && /^SN-\d{4}-[0-9A-Za-z]{4,}$/.test(ref);
 }
 
 const el = id => document.getElementById(id);
 const setTxt = (node, text) => { node.textContent = text; };
+/** HTML-escapes untrusted values for template interpolation (applicant input is
+ *  attacker-controlled on reviewer pages — every interpolated field goes here). */
+export function esc(v) {
+  return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
 export function libLink([label, href]) {
   const a = document.createElement('a');
   a.href = href;
@@ -347,7 +353,7 @@ function writeDraft(fields, step) {
 
 /* ---------- initApply: the wizard controller (apply.html only) ---------- */
 
-export function initApply({ submitApplication, fetchMarkets, configured }) {
+export function initApply({ submitApplication, fetchMarkets, configured, getSessionEmail, sendSignInLink, verifiedReturn = false }) {
   if (el('apply-form')?.dataset.v2 === 'on') return; // idempotent
   const form = el('apply-form');
   if (!form) return;
@@ -358,7 +364,7 @@ export function initApply({ submitApplication, fetchMarkets, configured }) {
     markets: [], marketState: 'idle', staleMarket: false,
     optIn: false, draftOk: true, savedAt: null, gen: 0, timer: 0,
     conflict: false, submitted: false, submitting: false, uncertain: false,
-    pendingStart: false, sideOpen: true,
+    pendingStart: false, sideOpen: true, session: null,
   };
   const $ = id => el(id);
   const val = id => ($(id)?.value ?? '');
@@ -649,6 +655,7 @@ export function initApply({ submitApplication, fetchMarkets, configured }) {
     renderProgress();
     renderSide();
     renderConditional();
+    renderVerify();
     if (n === 5) { renderReview(); $('review-notice').hidden = !!readAttempt(); }
     if (n === 2 && S.marketState === 'idle' && configured) loadMarkets();
     if (focus) $(`sh-${n}`).focus();
@@ -670,6 +677,10 @@ export function initApply({ submitApplication, fetchMarkets, configured }) {
   });
   $('btn-next').addEventListener('click', () => {
     const errs = fieldErrors(stepFieldKeys(S.step));
+    // C-003b: submission is authenticated — Contact cannot pass on unverified email
+    if (S.step === 4 && !S.session && EMAIL_RE.test($('f-email').value.trim())) {
+      errs.push({ key: 'contact_email', message: 'Verify your email to submit — send yourself a secure sign-in link first.' });
+    }
     if (errs.length) { showErrors(errs); return; }
     const returning = S.reviewReturn;
     if (returning) S.reviewReturn = false;
@@ -716,6 +727,11 @@ export function initApply({ submitApplication, fetchMarkets, configured }) {
     for (const key of APPLY.DRAFT_FIELDS) {
       const n = $(APPLY.FIELDS[key].id);
       if (n) n.value = rec.fields[key] ?? '';
+    }
+    if (S.session) { // the verified session owns the address, draft or not
+      const n = $('f-email');
+      n.value = S.session;
+      n.disabled = true;
     }
     $('f-consent').checked = false; // consent is never restored
     S.staleMarket = false;
@@ -859,6 +875,67 @@ export function initApply({ submitApplication, fetchMarkets, configured }) {
   $('f-entity').addEventListener('change', renderConditional);
   $('f-country').addEventListener('change', renderConditional);
 
+  /* ----- contact step: email verification gates submission (C-003b) ----- */
+  // ponytail: same-tab snapshot so the sign-in-link round-trip does not lose
+  // answers; sessionStorage dies with the tab, the local draft stays opt-in
+  const VERIFY_SNAP_KEY = 'soberana.apply.v2.authctx';
+  function verifySnap(recover) {
+    try {
+      if (recover === null) return JSON.parse(sessionStorage.getItem(VERIFY_SNAP_KEY) || 'null');
+      sessionStorage.removeItem(VERIFY_SNAP_KEY);
+    } catch { return null; }
+    return null;
+  }
+  async function lockEmailToSession() {
+    if (!getSessionEmail) return;
+    S.session = await getSessionEmail();
+    if (!S.session) return;
+    const n = $('f-email');
+    n.value = S.session;
+    n.disabled = true;
+    $('btn-send-link').hidden = true;
+  }
+  function renderVerify() {
+    if (!S.session) return; // unverified: the send-link button stays available
+    const n = $('f-email');
+    if (n.value !== S.session) n.value = S.session;
+    n.disabled = true;
+    $('btn-send-link').hidden = true;
+  }
+  $('btn-send-link').addEventListener('click', async () => {
+    const email = $('f-email').value.trim();
+    if (!EMAIL_RE.test(email)) { showErrors([{ key: 'contact_email', message: APPLY.FIELDS.contact_email.error }]); return; }
+    try { sessionStorage.setItem(VERIFY_SNAP_KEY, JSON.stringify({ fields: fields() })); } catch { /* continue in memory */ }
+    $('btn-send-link').disabled = true;
+    try {
+      await sendSignInLink(email, window.location.href);
+    } catch {
+      const st = $('verify-status');
+      st.textContent = 'We could not send the link. Check the address and try again.';
+      st.hidden = false;
+      $('btn-send-link').disabled = false;
+      return;
+    }
+    $('btn-send-link').disabled = false;
+    const st = $('verify-status');
+    st.textContent = `We sent you a secure sign-in link to ${email}. Open it in this browser to verify the address and continue here.`;
+    st.hidden = false;
+    announce($('state-live'), 'We sent you a secure sign-in link. Open it in this browser, then return here to submit.');
+  });
+  async function restoreAfterVerification() {
+    const snap = verifySnap(null);
+    verifySnap(); // one-time use either way
+    await ensureMarkets();
+    await lockEmailToSession();
+    if (snap && snap.fields) applyDraft({ fields: snap.fields });
+    goto(4);
+    const st = $('verify-status');
+    st.textContent = 'Your email is verified. Review your answers and submit — the application is sent under this address.';
+    st.hidden = false;
+    announce($('state-live'), st.textContent);
+  }
+
+
   /* ----- submission ----- */
   let slowTimer = 0;
   function readAttempt() {
@@ -888,6 +965,7 @@ export function initApply({ submitApplication, fetchMarkets, configured }) {
   }
   function setReadonly(on) {
     for (const c of form.querySelectorAll('input,select,textarea')) c.disabled = on;
+    if (S.session) $('f-email').disabled = true; // stays locked to the verified session
     $('submit-btn').disabled = on;
     for (const b of $('review-cards').querySelectorAll('button')) b.disabled = on;
   }
@@ -911,6 +989,7 @@ export function initApply({ submitApplication, fetchMarkets, configured }) {
     clearTimeout(slowTimer);
     slowTimer = setTimeout(() => { $('slow-note').hidden = false; }, 30000);
     const payload = buildPayload({ ...fields(), country_code: marketState().country_code, market_other: marketState().market_other, consent: $('f-consent').checked, company_web: val('f-company_web') });
+    if (S.session) payload.contact_email = S.session; // rules bind the application to the session email
     try {
       const res = await submitApplication(payload);
       clearTimeout(slowTimer);
@@ -1011,9 +1090,15 @@ export function initApply({ submitApplication, fetchMarkets, configured }) {
   const attempt = readAttempt();
   if (attempt && (attempt.state === 'pending' || attempt.state === 'uncertain')) {
     if (configured) loadMarkets();
+    lockEmailToSession();
     goto(5, { focus: false });
     renderAttemptState();
-  } else showEntry(false);
+  } else if (verifiedReturn) {
+    restoreAfterVerification();
+  } else {
+    lockEmailToSession(); // a persisted session locks the contact email on later steps
+    showEntry(false);
+  }
 }
 
 /* ---------- submitted.html: same-tab validated receipt ---------- */

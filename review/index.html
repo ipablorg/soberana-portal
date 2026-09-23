@@ -16,7 +16,7 @@
 <div id="site-header"></div>
 <main>
   <div class="wrap" style="padding-top:56px">
-    <div id="config-banner" class="banner">This portal is not wired to its backend yet. The operator must fill <code>assets/config.js</code> with the project URL and anon key.</div>
+    <div id="config-banner" class="banner">This portal is not wired to its backend yet. The operator must fill <code>assets/config.js</code> with the project's <code>firebaseConfig</code> block.</div>
 
     <!-- no-access screen -->
     <div id="noaccess" style="display:none;text-align:center;padding:60px 0">
@@ -39,17 +39,11 @@
           <label for="f-email">Committee email <span class="req">*</span></label>
           <input id="f-email" type="email" autocomplete="email" placeholder="you@organization.com">
         </fieldset>
-        <button class="btn" id="btn-code" style="width:100%">Email me a code</button>
-        <div class="divider">or</div>
-        <button class="btn ghost" id="btn-magic" style="width:100%">Email me a sign-in link</button>
+        <button class="btn" id="btn-send-link" style="width:100%">Email me a sign-in link</button>
         <p class="hint" id="sent-hint" style="display:none"></p>
-        <div class="code-row" id="code-row">
-          <input id="f-code" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="6-digit code" style="letter-spacing:.35em;font-family:var(--mono)">
-          <button class="btn" id="btn-verify">Verify</button>
-        </div>
         <p class="err" id="auth-err"></p>
       </div>
-      <p class="hint">The code and the link both sign you in on this page. Access is limited to active committee members.</p>
+      <p class="hint">We'll email you a secure sign-in link. Open it in this browser to sign in — access is limited to active committee members.</p>
     </div>
 
     <!-- board -->
@@ -64,10 +58,10 @@
 </main>
 <div id="site-footer"></div>
 <script type="module">
-import { chrome, configBanner, toast, STAGES, STAGE_LABELS, fmtDate } from '../assets/ui.js';
+import { chrome, configBanner, esc, STAGES, STAGE_LABELS } from '../assets/ui.js';
 import {
-  configured, sb, sendLoginCode, sendMagicLink, verifyLoginCode, hasMagicLinkHash,
-  currentUser, userEmail, signOut, myReviewerRow, boardData,
+  configured, authReady, completeSignIn, sendSignInLink, signInWithEmailLinkCode, isSignInWithEmailLinkUrl,
+  currentUser, userEmail, signOut, myReviewerRow, boardData, fetchMarkets,
 } from '../assets/api.js';
 
 chrome({ active: 'pipeline', depth: 1, internal: true });
@@ -79,42 +73,36 @@ async function loadBoard() {
   const user = await currentUser();
   if (!user) { show('auth-view'); return; }
   let row = null;
-  try { row = await myReviewerRow(); } catch { /* RLS */ }
+  try { row = await myReviewerRow(); } catch { /* rules deny → no access */ }
   if (!row || !row.active) { show('noaccess'); return; }
   show('board-view');
 
-  const { apps, gates, totals, events } = await boardData();
+  // boardData computes totals/band client-side from gates + scores + dimensions
+  const { apps, totals } = await boardData();
   const marketsCache = {};
   try {
-    const { fetchMarkets } = await import('../assets/api.js');
     for (const m of await fetchMarkets()) marketsCache[m.code] = m.name;
   } catch { /* chips fall back to codes */ }
 
-  const gateStats = {};
-  for (const g of gates) {
-    const s = gateStats[g.application_id] ||= { pass: 0, fail: 0, count: 0 };
-    s.count++; if (g.result === 'pass') s.pass++; if (g.result === 'fail') s.fail++;
-  }
-  const tot = Object.fromEntries(totals.map(t => [t.application_id, t]));
-  const lastStage = {};
-  for (const e of events) lastStage[e.application_id] = e.created_at;
   const DAYS = 86400000;
-  const age = a => Math.max(0, Math.floor((Date.now() - new Date(lastStage[a.id] || a.created_at).getTime()) / DAYS));
+  const age = a => Math.max(0, Math.floor((Date.now() - new Date(a.created_at).getTime()) / DAYS));
 
   const cards = {};
   for (const s of STAGES) cards[s] = [];
   for (const a of apps) {
-    const g = gateStats[a.id] || { pass: 0, count: 0, fail: 0 };
-    const t = tot[a.id];
+    const t = totals[a.id];
     const mkt = a.country_code ? (marketsCache[a.country_code] || a.country_code) : (a.market_other || '—');
+    const gateBadge = t
+      ? `<span class="badge ${t.gates_failed ? 'g-bad' : (t.gates_pending ? '' : 'g-ok')}">gates ${5 - t.gates_pending - t.gates_failed}/5${t.gates_failed ? ' · ' + t.gates_failed + ' fail' : ''}</span>`
+      : '<span class="badge">gates —</span>';
     cards[a.status]?.push(`
-      <a class="bcard" href="application.html?id=${a.id}" data-search="${(a.ref + ' ' + a.company + ' ' + mkt).toLowerCase()}">
-        <div class="ref">${a.ref} · ${age(a)}d</div>
-        <div class="co">${a.company}</div>
+      <a class="bcard" href="application.html?id=${encodeURIComponent(a.id)}" data-search="${esc((a.ref + ' ' + a.company + ' ' + mkt).toLowerCase())}">
+        <div class="ref">${esc(a.ref)} · ${age(a)}d</div>
+        <div class="co">${esc(a.company)}</div>
         <div class="meta">
-          <span class="chip cool">${mkt}</span>
-          <span class="badge ${g.fail ? 'g-bad' : (g.pass === g.count && g.count ? 'g-ok' : '')}">gates ${g.pass}/${g.count || 5}${g.fail ? ' · ' + g.fail + ' fail' : ''}</span>
-          <span class="badge">${t && t.total_points != null ? t.total_points + ' pts' : '—'}</span>
+          <span class="chip cool">${esc(mkt)}</span>
+          ${gateBadge}
+          <span class="badge">${t && t.dims_scored ? t.total_points + ' pts' : '—'}</span>
         </div>
       </a>`);
   }
@@ -127,50 +115,47 @@ async function loadBoard() {
   };
 }
 
-/* --- auth: BOTH OTP variants --- */
-let pendingEmail = null;
+/* --- auth: secure email-link sign-in (C-003b) --- */
 const authErr = document.getElementById('auth-err');
 const fail = msg => { authErr.textContent = msg; authErr.classList.add('show'); };
 
-document.getElementById('btn-code').addEventListener('click', async () => {
+document.getElementById('btn-send-link').addEventListener('click', async () => {
   authErr.classList.remove('show');
   const email = document.getElementById('f-email').value.trim();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail('Enter a valid email address.');
-  const { error } = await sendLoginCode(email);
-  if (error) return fail(error.message || 'Could not send the code.');
-  pendingEmail = email;
-  document.getElementById('code-row').classList.add('show');
+  // a link opened on another device keeps its code in the URL: the typed email
+  // completes THAT sign-in instead of sending a new link
+  if (isSignInWithEmailLinkUrl()) {
+    try {
+      await signInWithEmailLinkCode(email, window.location.href);
+    } catch {
+      return fail('That link did not match this email. Request a new sign-in link.');
+    }
+    await loadBoard();
+    return;
+  }
+  try {
+    await sendSignInLink(email, window.location.href);
+  } catch {
+    return fail('Could not send the link.');
+  }
   const hint = document.getElementById('sent-hint');
-  hint.textContent = `Code sent to ${email}. It expires shortly — enter it below.`;
-  hint.style.display = 'block';
-  document.getElementById('f-code').focus();
-});
-document.getElementById('btn-magic').addEventListener('click', async () => {
-  authErr.classList.remove('show');
-  const email = document.getElementById('f-email').value.trim();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail('Enter a valid email address.');
-  const { error } = await sendMagicLink(email, window.location.href);
-  if (error) return fail(error.message || 'Could not send the link.');
-  const hint = document.getElementById('sent-hint');
-  hint.textContent = `Sign-in link sent to ${email}. Open it on this browser to continue here.`;
+  hint.textContent = `We sent you a secure sign-in link to ${email}. Open it in this browser to continue here.`;
   hint.style.display = 'block';
 });
-async function doVerify() {
-  authErr.classList.remove('show');
-  const token = document.getElementById('f-code').value.trim();
-  if (!/^\d{6}$/.test(token)) return fail('Enter the 6-digit code from the email.');
-  const { error } = await verifyLoginCode(pendingEmail, token);
-  if (error) return fail('That code did not match. Request a new one and try again.');
-  await loadBoard();
-}
-document.getElementById('btn-verify').addEventListener('click', doVerify);
-document.getElementById('f-code').addEventListener('keydown', e => { if (e.key === 'Enter') doVerify(); });
 document.getElementById('signout-na').addEventListener('click', async () => { await signOut(); show('auth-view'); });
 
 (async () => {
   if (!configured) return;
-  if (hasMagicLinkHash()) await new Promise(r => setTimeout(r, 900));
-  (await currentUser()) ? loadBoard() : show('auth-view');
+  await authReady();
+  await completeSignIn();
+  if (await currentUser()) { await loadBoard(); return; }
+  show('auth-view');
+  if (isSignInWithEmailLinkUrl()) {
+    const hint = document.getElementById('sent-hint');
+    hint.textContent = 'To finish signing in on this device, enter the email the link was sent to.';
+    hint.style.display = 'block';
+  }
 })();
 </script>
 </body>

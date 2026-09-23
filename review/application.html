@@ -16,7 +16,7 @@
 <div id="site-header"></div>
 <main>
   <div class="wrap" style="padding-top:56px">
-    <div id="config-banner" class="banner">This portal is not wired to its backend yet. The operator must fill <code>assets/config.js</code> with the project URL and anon key.</div>
+    <div id="config-banner" class="banner">This portal is not wired to its backend yet. The operator must fill <code>assets/config.js</code> with the project's <code>firebaseConfig</code> block.</div>
 
     <div id="noaccess" style="display:none;text-align:center;padding:60px 0">
       <div class="kicker">Review</div>
@@ -79,9 +79,9 @@
 </main>
 <div id="site-footer"></div>
 <script type="module">
-import { chrome, configBanner, toast, fmtDate, qs, STAGES, STAGE_LABELS } from '../assets/ui.js';
+import { chrome, configBanner, esc, toast, fmtDate, qs, STAGES, STAGE_LABELS } from '../assets/ui.js';
 import {
-  configured, sb, currentUser, signOut, myReviewerRow, fetchApplication, fetchGates, saveGates,
+  configured, authReady, currentUser, signOut, myReviewerRow, fetchApplication, fetchGates, saveGates,
   fetchDimensions, fetchScores, saveScores, fetchTotals, fetchDecision, recordDecision,
   setStatus, fetchEvents, addEventNote,
 } from '../assets/api.js';
@@ -103,6 +103,8 @@ const show = id2 => { for (const s of ['noaccess', 'detail']) document.getElemen
 
 let role = 'reviewer';
 const canWrite = () => role !== 'readonly';
+// applicant input is attacker-controlled — it renders as text, never as markup
+const txt = v => esc(v) || '—';
 
 function row(label, value) {
   return `<div style="display:flex;gap:12px;padding:7px 0;border-bottom:1px solid var(--line)"><span style="font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);flex:0 0 150px;padding-top:2px">${label}</span><span style="flex:1;word-break:break-word">${value ?? '—'}</span></div>`;
@@ -129,7 +131,7 @@ async function loadAll() {
 
   // head
   document.getElementById('head').innerHTML =
-    `<div class="kicker">${app.ref}</div><h1 style="margin-bottom:4px">${app.company}</h1>
+    `<div class="kicker">${esc(app.ref)}</div><h1 style="margin-bottom:4px">${esc(app.company)}</h1>
      <p class="note" style="margin-top:0">Applied ${fmtDate(app.created_at)} · stage: <b style="color:#fff">${STAGE_LABELS[app.status]}</b></p>`;
 
   // totals badges
@@ -140,27 +142,30 @@ async function loadAll() {
   if (decision) tb.push(`<span class="chip warm">decision: ${OUTCOME_LABEL[decision.outcome]}</span>`);
   document.getElementById('totals-line').innerHTML = tb.join('');
 
-  // submitted data
-  const mkt = app.country_code ? app.country_code : (app.market_other ? app.market_other + ' (outside list)' : '—');
+  // submitted data — the website link only goes live for http(s) values
+  const site = /^https?:\/\//i.test(String(app.website || ''))
+    ? `<a href="${esc(app.website)}" target="_blank" rel="noopener">${esc(app.website)}</a>`
+    : txt(app.website);
+  const mkt = app.country_code ? esc(app.country_code) : (app.market_other ? esc(app.market_other) + ' (outside list)' : '—');
   document.getElementById('app-data').innerHTML = [
-    row('Company', app.company), row('Website', app.website ? `<a href="${app.website}" target="_blank" rel="noopener">${app.website}</a>` : '—'),
-    row('Entity class', app.entity_class), row('Market', mkt), row('Rails operated', app.rails_operated),
-    row('Regulator', app.regulator), row('License ID', app.license_id), row('Operating role', app.operating_role),
-    row('Monthly TPV', app.tpv_band), row('Corridors contributed', app.corridors_contribute),
-    row('Corridors received', app.corridors_receive), row('Contribution', app.contribution),
-    row('Contact', `${app.contact_name} · <a href="mailto:${app.contact_email}">${app.contact_email}</a>`),
-    row('Consent', app.consent ? 'yes' : 'NO'), row('Source', app.source),
+    row('Company', txt(app.company)), row('Website', site),
+    row('Entity class', txt(app.entity_class)), row('Market', mkt), row('Rails operated', txt(app.rails_operated)),
+    row('Regulator', txt(app.regulator)), row('License ID', txt(app.license_id)), row('Operating role', txt(app.operating_role)),
+    row('Monthly TPV', txt(app.tpv_band)), row('Corridors contributed', txt(app.corridors_contribute)),
+    row('Corridors received', txt(app.corridors_receive)), row('Contribution', txt(app.contribution)),
+    row('Contact', `${txt(app.contact_name)} · <a href="mailto:${esc(app.contact_email)}">${esc(app.contact_email)}</a>`),
+    row('Consent', app.consent ? 'yes' : 'NO'), row('Source', txt(app.source)),
   ].join('');
 
   // gates
   const results = ['pending', 'pass', 'fail', 'na'];
   document.getElementById('gates').innerHTML = gates.map(g => `
-    <div style="display:flex;gap:8px;align-items:center;margin-top:10px" data-gate="${g.gate_code}">
-      <span class="hint" style="flex:1;margin:0"><b style="color:#fff;font-family:var(--mono);font-size:11px">${g.gate_code}</b> · ${GATE_HINT[g.gate_code]}</span>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:10px" data-gate="${esc(g.gate_code)}">
+      <span class="hint" style="flex:1;margin:0"><b style="color:#fff;font-family:var(--mono);font-size:11px">${esc(g.gate_code)}</b> · ${GATE_HINT[g.gate_code]}</span>
       <select data-gate-result style="width:110px;flex:none" ${canWrite() ? '' : 'disabled'}>
         ${results.map(r => `<option ${g.result === r ? 'selected' : ''}>${r}</option>`).join('')}
       </select>
-      <input data-gate-note placeholder="note" value="${(g.note || '').replaceAll('"', '&quot;')}" style="flex:1.2" ${canWrite() ? '' : 'disabled'}>
+      <input data-gate-note placeholder="note" value="${esc(g.note || '')}" style="flex:1.2" ${canWrite() ? '' : 'disabled'}>
     </div>`).join('');
   if (!canWrite()) document.getElementById('save-gates').style.display = 'none';
 
@@ -168,11 +173,11 @@ async function loadAll() {
   const scoreBy = Object.fromEntries(scores.map(s => [s.dimension_code, s]));
   document.getElementById('worksheet').innerHTML = dims.map(d => {
     const s = scoreBy[d.code];
-    return `<div style="display:flex;gap:8px;align-items:center;margin-top:10px" data-dim="${d.code}">
-      <span class="hint" style="flex:1;margin:0"><b style="color:#fff;font-family:var(--mono);font-size:11px">${d.code}</b> · ${d.label}${d.band_guide ? `<br>${d.band_guide}` : ''}</span>
-      <input data-dim-points type="number" min="0" max="${d.weight}" step="1" value="${s?.points ?? ''}" style="width:90px;flex:none" placeholder="0–${d.weight}" ${canWrite() ? '' : 'disabled'}>
+    return `<div style="display:flex;gap:8px;align-items:center;margin-top:10px" data-dim="${esc(d.code)}">
+      <span class="hint" style="flex:1;margin:0"><b style="color:#fff;font-family:var(--mono);font-size:11px">${esc(d.code)}</b> · ${esc(d.label)}${d.band_guide ? `<br>${esc(d.band_guide)}` : ''}</span>
+      <input data-dim-points type="number" min="0" max="${d.weight}" step="1" value="${esc(s?.points ?? '')}" style="width:90px;flex:none" placeholder="0–${d.weight}" ${canWrite() ? '' : 'disabled'}>
       <span class="hint" style="flex:none;margin:0">of ${d.weight}</span>
-      <input data-dim-note placeholder="note" value="${(s?.note || '').replaceAll('"', '&quot;')}" style="flex:1" ${canWrite() ? '' : 'disabled'}>
+      <input data-dim-note placeholder="note" value="${esc(s?.note || '')}" style="flex:1" ${canWrite() ? '' : 'disabled'}>
     </div>`;
   }).join('') || '<p class="hint">Evaluation dimensions appear once the network seeds them.</p>';
   if (!canWrite() || !dims.length) document.getElementById('save-scores').style.display = 'none';
@@ -180,7 +185,7 @@ async function loadAll() {
   const renderBand = t => {
     document.getElementById('band-line').innerHTML = t
       ? `<span class="badge">running total ${t.total_points} / ${t.max_points}</span>
-         <span class="badge ${t.band ? 'g-ok' : ''}">band: ${t.band ? BAND_LABEL[t.band] : '—'}${(t.gates_failed + t.gates_pending) > 0 ? ' (blocked: gates open)' : (t.dims_scored < 5 ? ' (blocked: dimensions missing)' : '')}</span>`
+         <span class="badge ${t.band ? 'g-ok' : ''}">band: ${t.band ? BAND_LABEL[t.band] : '—'}${(t.gates_failed + t.gates_pending) > 0 ? ' (blocked: gates open)' : (t.dims_scored < dims.length ? ' (blocked: dimensions missing)' : '')}</span>`
       : '';
   };
   renderBand(totals);
@@ -197,7 +202,7 @@ async function loadAll() {
   // decision (admin only — C-001 chain records it)
   const dc = document.getElementById('decision-ctl');
   if (decision) {
-    dc.innerHTML = `<div class="tblwrap">${row('Outcome', OUTCOME_LABEL[decision.outcome])}${row('Rationale', decision.rationale)}${row('Conditions', decision.conditions)}${row('Board ref', decision.board_ref)}${row('Decided', fmtDate(decision.decided_at))}</div>`;
+    dc.innerHTML = `<div class="tblwrap">${row('Outcome', OUTCOME_LABEL[decision.outcome])}${row('Rationale', txt(decision.rationale))}${row('Conditions', txt(decision.conditions))}${row('Board ref', txt(decision.board_ref))}${row('Decided', fmtDate(decision.decided_at))}</div>`;
   } else if (role === 'admin') {
     dc.innerHTML = `
       <fieldset><label>Outcome</label><select id="d-outcome">
@@ -218,9 +223,9 @@ async function loadAll() {
   // events
   const renderEvents = evs => {
     document.getElementById('events').innerHTML = evs.length ? evs.map(e =>
-      `<div style="padding:7px 0;border-bottom:1px solid var(--line)"><span class="chip">${e.event}</span>
+      `<div style="padding:7px 0;border-bottom:1px solid var(--line)"><span class="chip">${esc(e.event)}</span>
        <span style="color:var(--muted);font-size:12px"> ${new Date(e.created_at).toLocaleString('en')}</span>
-       ${e.detail ? `<div style="margin-top:3px">${e.detail}</div>` : ''}</div>`).join('')
+       ${e.detail ? `<div style="margin-top:3px">${esc(e.detail)}</div>` : ''}</div>`).join('')
       : '<p class="hint">No events yet.</p>';
   };
   renderEvents(events);
@@ -295,6 +300,7 @@ async function loadAll() {
 
 (async () => {
   if (!configured) return;
+  await authReady();
   if (!(await currentUser())) { window.location.href = 'index.html'; return; }
   await loadAll();
 })();

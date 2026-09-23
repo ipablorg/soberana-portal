@@ -16,7 +16,7 @@
 <div id="site-header"></div>
 <main>
   <div class="wrap" style="padding-top:56px">
-    <div id="config-banner" class="banner">This portal is not wired to its backend yet. The operator must fill <code>assets/config.js</code> with the project URL and anon key.</div>
+    <div id="config-banner" class="banner">This portal is not wired to its backend yet. The operator must fill <code>assets/config.js</code> with the project's <code>firebaseConfig</code> block.</div>
 
     <div id="noaccess" style="display:none;text-align:center;padding:60px 0">
       <div class="kicker">Review</div>
@@ -45,7 +45,7 @@
 <div id="site-footer"></div>
 <script type="module">
 import { chrome, configBanner, toast } from '../assets/ui.js';
-import { configured, currentUser, signOut, myReviewerRow, fetchSeats, saveSeat } from '../assets/api.js';
+import { configured, authReady, currentUser, signOut, myReviewerRow, fetchSeats, saveSeat } from '../assets/api.js';
 
 chrome({ active: 'seats', depth: 1, internal: true });
 if (!configured) configBanner();
@@ -93,6 +93,7 @@ async function load() {
 document.getElementById('signout-na').addEventListener('click', async () => { await signOut(); show('noaccess'); });
 (async () => {
   if (!configured) return;
+  await authReady();
   (await currentUser()) ? load() : show('noaccess');
 })();
 </script>
