@@ -5,12 +5,12 @@
    Firebase console → Project settings → General → Your apps. */
 
 export const firebaseConfig = {
-  apiKey: 'PEGA_AQUI_API_KEY',
-  authDomain: 'PEGA_AQUI_PROJECT_ID.firebaseapp.com',
-  projectId: 'PEGA_AQUI_PROJECT_ID',
-  storageBucket: 'PEGA_AQUI_PROJECT_ID.appspot.com',
-  messagingSenderId: 'PEGA_AQUI_SENDER_ID',
-  appId: 'PEGA_AQUI_APP_ID',
+  apiKey: 'AIzaSyAlKFFR5LouGUcxCjTA420iwQ85g54s79w',
+  authDomain: 'soberananetwork-55b34.firebaseapp.com',
+  projectId: 'soberananetwork-55b34',
+  storageBucket: 'soberananetwork-55b34.firebasestorage.app',
+  messagingSenderId: '436221251626',
+  appId: '1:436221251626:web:5b0b0aafbf69f685b87353',
 };
 
 /* Emulator switch: open any page with ?emulator=1 (tests only, never production). */
